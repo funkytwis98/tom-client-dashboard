@@ -3,6 +3,7 @@ import { verifyRetellSignature } from '@/lib/retell/webhook-verify'
 import { getClientByAgentId } from '@/lib/retell/client'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAfterHours } from '@/lib/utils/time'
+import { analyzeCallTranscript } from '@/lib/analysis/lead-extraction'
 import type { RetellWebhookEvent } from '@/types/retell'
 
 // ---------------------------------------------------------------------------
@@ -140,8 +141,56 @@ async function handleCallEnded(
     })
     .eq('retell_call_id', call.call_id)
 
-  // TODO(Plan 04): trigger lead extraction using analyzeCallTranscript(call.transcript)
-  // TODO(Plan 05): trigger owner notification via sendOwnerSMS after lead is created
+  // Fetch the call record ID for lead linkage
+  const { data: callRecord } = await supabase
+    .from('calls')
+    .select('id')
+    .eq('retell_call_id', call.call_id)
+    .single()
+
+  // Lead extraction — analyze transcript with Claude Haiku
+  let leadId: string | null = null
+  try {
+    const analysis = await analyzeCallTranscript(call.transcript)
+
+    // Update call record with AI-derived fields
+    await supabase
+      .from('calls')
+      .update({
+        sentiment: analysis.sentiment,
+        lead_score: analysis.lead_score,
+        summary: analysis.summary,
+        caller_name: analysis.caller_name,
+      })
+      .eq('retell_call_id', call.call_id)
+
+    // Create lead record if this call has lead potential
+    if (analysis.is_lead) {
+      const { data: leadRecord } = await supabase
+        .from('leads')
+        .insert({
+          client_id: client.id,
+          call_id: callRecord?.id ?? null,
+          name: analysis.caller_name,
+          phone: call.from_number,
+          service_interested: analysis.service_interested,
+          notes: analysis.notes,
+          urgency: analysis.urgency,
+          status: 'new',
+          owner_notified: false,
+        })
+        .select('id')
+        .single()
+
+      leadId = leadRecord?.id ?? null
+    }
+  } catch (err) {
+    // Non-fatal — call is already logged, analysis is best-effort
+    console.error('[retell-webhook] Lead extraction failed:', err)
+  }
+
+  // TODO(Plan 05): trigger owner notification if analysis.lead_score >= 9
+  void leadId // referenced in Plan 05 notification
 }
 
 async function handleCallAnalyzed(
