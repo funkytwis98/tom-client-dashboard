@@ -78,27 +78,28 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CALL-01 | — | Pending |
-| CALL-02 | — | Pending |
-| CALL-03 | — | Pending |
-| LEAD-01 | — | Pending |
-| LEAD-02 | — | Pending |
-| LEAD-03 | — | Pending |
-| NOTF-01 | — | Pending |
-| NOTF-02 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
-| AGNT-01 | — | Pending |
-| AGNT-02 | — | Pending |
-| AGNT-03 | — | Pending |
+| CALL-01 | 1 | Pending |
+| CALL-02 | 1 | Pending |
+| CALL-03 | 1 | Pending |
+| LEAD-01 | 1 | Pending |
+| LEAD-02 | 1 | Pending |
+| LEAD-03 | 1 | Pending |
+| NOTF-01 | 1 | Pending |
+| NOTF-02 | 1 | Pending |
+| DASH-01 | 1 | Pending |
+| DASH-02 | 1 | Pending |
+| DASH-03 | 1 | Pending |
+| DASH-04 | 1 | Pending |
+| AGNT-01 | 1 | Pending |
+| AGNT-02 | 1 | Pending |
+| AGNT-03 | 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15
+- Unmapped: 0 ✓
 
 ---
+
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after initial definition*
+*Last updated: 2026-03-01 after roadmap creation*
