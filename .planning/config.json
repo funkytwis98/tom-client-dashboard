@@ -1,0 +1,17 @@
+{
+  "mode": "yolo",
+  "depth": "standard",
+  "parallelization": true,
+  "commit_docs": true,
+  "model_profile": "budget",
+  "model_escalation": {
+    "default": "haiku",
+    "on_setback": "sonnet",
+    "complex_only": "opus"
+  },
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  }
+}
