@@ -99,6 +99,10 @@ progress:
 | Next.js 15 (not 14) | Latest stable, compatible with all planned dependencies | ✓ Locked (Plan 01-01) |
 | Eager env for NEXT_PUBLIC_ vars, lazy functions for server-only secrets | Prevents build errors, client bundles need NEXT_PUBLIC_ at compile time | ✓ Locked (Plan 01-02) |
 | Domain types as plain interfaces (not Supabase-generated) | Portable, readable, decoupled from DB client library version | ✓ Locked (Plan 01-02) |
+| HMAC-SHA256 timingSafeEqual for Retell webhook verification | Prevents timing oracle attacks on signature comparison | ✓ Locked (Plan 01-03) |
+| webhook_processing_log for idempotency | Deduplicates Retell retry deliveries by (call_id, event_type) — prevents duplicate call records | ✓ Locked (Plan 01-03) |
+| createServiceClient bypasses RLS for webhooks | Webhooks are server-to-server — no user session, service-role appropriate | ✓ Locked (Plan 01-03) |
+| Short calls (< 10 sec) treated as voicemail | Covers dropped calls and pocket dials regardless of business hours | ✓ Locked (Plan 01-03) |
 | Retell agent sync via llm.update (not agent.update) | System prompt lives on LLM object; must retrieve agent to get llm_id first | ✓ Locked (Plan 01-06) |
 | Mock Supabase is_active filter in unit tests | Mocks simulate server-side filtering so tests accurately reflect DB behavior | ✓ Locked (Plan 01-06) |
 | Twilio singleton client (module-level) | Avoid creating new Twilio instance per-request for high-volume clients | ✓ Locked (Plan 01-05) |
