@@ -1,43 +1,76 @@
-export default function DashboardPage() {
+import { createClient } from '@/lib/supabase/server'
+import { Analytics } from '@/components/dashboard/Analytics'
+import Link from 'next/link'
+import type { Call } from '@/types/domain'
+
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return '—'
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function formatPhone(phone: string | null): string {
+  if (!phone) return 'Unknown'
+  return phone
+}
+
+function sentimentBadge(sentiment: string | null) {
+  if (!sentiment) return null
+  const map: Record<string, string> = {
+    positive: 'bg-green-50 text-green-700',
+    neutral: 'bg-gray-100 text-gray-600',
+    negative: 'bg-red-50 text-red-700',
+  }
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+        map[sentiment] ?? 'bg-gray-100 text-gray-600'
+      }`}
+    >
+      {sentiment}
+    </span>
+  )
+}
+
+export default async function DashboardPage() {
+  const supabase = await createClient()
+
+  const { data: recentCalls } = await supabase
+    .from('calls')
+    .select('*')
+    .neq('status', 'in_progress')
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const calls = (recentCalls ?? []) as Call[]
+
   return (
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Command Center</h1>
-        <p className="text-sm text-gray-500 mt-1">Monitor your AI receptionist activity</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Monitor your AI receptionist activity
+        </p>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <p className="text-sm font-medium text-gray-500">Calls Today</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">—</p>
-          <p className="text-xs text-gray-400 mt-1">Real data in Plan 08</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <p className="text-sm font-medium text-gray-500">Leads This Week</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">—</p>
-          <p className="text-xs text-gray-400 mt-1">Real data in Plan 08</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <p className="text-sm font-medium text-gray-500">Active Clients</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">—</p>
-          <p className="text-xs text-gray-400 mt-1">Real data in Plan 08</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <p className="text-sm font-medium text-gray-500">Avg Call Duration</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">—</p>
-          <p className="text-xs text-gray-400 mt-1">Real data in Plan 08</p>
-        </div>
+      {/* Analytics stats — server-side queries */}
+      <div className="mb-8">
+        <Analytics />
       </div>
 
-      {/* Recent calls */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">Recent Calls</h2>
-        </div>
-        <div className="px-6 py-12 text-center">
+      {/* Quick Links */}
+      <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Link
+          href="/clients"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+        >
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Clients</p>
+            <p className="text-xs text-gray-500 mt-0.5">Manage businesses</p>
+          </div>
           <svg
-            className="mx-auto h-12 w-12 text-gray-300"
+            className="h-5 w-5 text-gray-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -46,14 +79,122 @@ export default function DashboardPage() {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={1.5}
-              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+              d="M9 5l7 7-7 7"
             />
           </svg>
-          <p className="mt-3 text-sm text-gray-500">No calls yet</p>
-          <p className="text-xs text-gray-400 mt-1">
-            Calls will appear here once Retell AI is connected
-          </p>
+        </Link>
+
+        <Link
+          href="/calls"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+        >
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Calls</p>
+            <p className="text-xs text-gray-500 mt-0.5">View call log</p>
+          </div>
+          <svg
+            className="h-5 w-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </Link>
+
+        <Link
+          href="/leads"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+        >
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Leads</p>
+            <p className="text-xs text-gray-500 mt-0.5">Track pipeline</p>
+          </div>
+          <svg
+            className="h-5 w-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </Link>
+      </div>
+
+      {/* Recent calls */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900">Recent Calls</h2>
+          <Link
+            href="/calls"
+            className="text-sm text-indigo-600 hover:underline"
+          >
+            View all
+          </Link>
         </div>
+
+        {calls.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <svg
+              className="mx-auto h-12 w-12 text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+              />
+            </svg>
+            <p className="mt-3 text-sm text-gray-500">No calls yet</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Calls will appear here once Retell AI is connected
+            </p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {calls.map((call) => (
+              <li key={call.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {call.caller_name ?? formatPhone(call.caller_number)}
+                    </p>
+                    {sentimentBadge(call.sentiment)}
+                    {call.lead_score != null && (
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 font-medium">
+                        Score {call.lead_score}/10
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-gray-400 truncate">
+                    {call.summary ?? 'No summary yet'}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-gray-500">
+                    {formatDuration(call.duration_seconds)}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {new Date(call.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )
