@@ -45,7 +45,7 @@
 
 10. **After-hours calls receive voicemail message and are logged as missed** — Call arrives outside business hours → AI plays voicemail message configured by admin → call logged with status "voicemail" → owner still notified with summary.
 
-**Plans:** 4/9 plans executed
+**Plans:** 6/9 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md — Next.js project init + full Supabase schema migration (Wave 1)
@@ -64,7 +64,7 @@ Plans:
 
 | Phase | Requirements | Plans Complete | Status | Completed |
 |-------|--------------|----------------|--------|-----------|
-| 1. Inbound Call Loop | 4/9 | In Progress|  | — |
+| 1. Inbound Call Loop | 6/9 | In Progress|  | — |
 
 ---
 
