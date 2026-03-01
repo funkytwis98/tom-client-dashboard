@@ -101,6 +101,9 @@ progress:
 | Domain types as plain interfaces (not Supabase-generated) | Portable, readable, decoupled from DB client library version | ✓ Locked (Plan 01-02) |
 | Retell agent sync via llm.update (not agent.update) | System prompt lives on LLM object; must retrieve agent to get llm_id first | ✓ Locked (Plan 01-06) |
 | Mock Supabase is_active filter in unit tests | Mocks simulate server-side filtering so tests accurately reflect DB behavior | ✓ Locked (Plan 01-06) |
+| Twilio singleton client (module-level) | Avoid creating new Twilio instance per-request for high-volume clients | ✓ Locked (Plan 01-05) |
+| Always-log notifications to DB (sent or failed) | Never lose audit trail — log regardless of Twilio API result | ✓ Locked (Plan 01-05) |
+| Reuse REVALIDATE_SECRET as cron bearer token | One fewer env var to configure for daily summary cron auth | ✓ Locked (Plan 01-05) |
 
 ---
 
@@ -186,6 +189,13 @@ progress:
 - Files created: 4 (+ 2 modified)
 - Commits: b9df9f1, 640a352
 - SUMMARY: .planning/phases/01-inbound-call-loop-owner-control/01-02-SUMMARY.md
+
+**Plan 01-05 execution:**
+- Duration: 11 min
+- Tasks completed: 2 (RED + GREEN)
+- Files created: 8 (+ 2 modified)
+- Commits: 106f046 (test), 082c811 (feat)
+- SUMMARY: .planning/phases/01-inbound-call-loop-owner-control/01-05-SUMMARY.md
 
 **Plan 01-06 execution:**
 - Duration: 9 min
