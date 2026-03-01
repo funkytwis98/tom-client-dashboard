@@ -45,7 +45,18 @@
 
 10. **After-hours calls receive voicemail message and are logged as missed** — Call arrives outside business hours → AI plays voicemail message configured by admin → call logged with status "voicemail" → owner still notified with summary.
 
-**Plans:** TBD (will be detailed in phase planning)
+**Plans:** 9 plans across 4 waves
+
+Plans:
+- [ ] 01-01-PLAN.md — Next.js project init + full Supabase schema migration (Wave 1)
+- [ ] 01-02-PLAN.md — TypeScript domain/API/Retell types + environment validation (Wave 1)
+- [ ] 01-03-PLAN.md — Retell webhook handler: call_started/call_ended/call_analyzed with idempotency (Wave 2)
+- [ ] 01-04-PLAN.md — Claude-powered lead extraction + call quality scoring (TDD) (Wave 2)
+- [ ] 01-05-PLAN.md — Twilio SMS notifications + owner command parser + daily summary cron (TDD) (Wave 2)
+- [ ] 01-06-PLAN.md — Retell agent prompt builder + agent config + knowledge base Server Actions (Wave 2)
+- [ ] 01-07-PLAN.md — Dashboard: call log with Realtime + leads pipeline with quick actions (Wave 3)
+- [ ] 01-08-PLAN.md — Dashboard: knowledge base editor + agent config form + analytics home (Wave 3)
+- [ ] 01-09-PLAN.md — End-to-end human verification with real Retell + Twilio (Wave 4, checkpoint)
 
 ---
 
@@ -53,7 +64,7 @@
 
 | Phase | Requirements | Plans Complete | Status | Completed |
 |-------|--------------|----------------|--------|-----------|
-| 1. Inbound Call Loop | 15/15 | 0/TBD | Not started | — |
+| 1. Inbound Call Loop | 15/15 | 0/9 | Not started | — |
 
 ---
 
