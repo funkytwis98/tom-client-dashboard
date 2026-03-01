@@ -7,33 +7,33 @@
 
 ### Call Handling
 
-- [ ] **CALL-01**: AI answers inbound calls with client-specific knowledge (services, pricing, hours, FAQs)
-- [ ] **CALL-02**: Every call is logged with transcript, duration, recording URL, and AI-generated summary
-- [ ] **CALL-03**: After-hours calls receive a voicemail message and are logged as missed
+- [x] **CALL-01**: AI answers inbound calls with client-specific knowledge (services, pricing, hours, FAQs)
+- [x] **CALL-02**: Every call is logged with transcript, duration, recording URL, and AI-generated summary
+- [x] **CALL-03**: After-hours calls receive a voicemail message and are logged as missed
 
 ### Lead Management
 
-- [ ] **LEAD-01**: AI extracts lead info from call transcripts (name, phone, service interest, urgency)
-- [ ] **LEAD-02**: Each lead receives a 1-10 score based on call analysis
-- [ ] **LEAD-03**: Leads have status tracking: new, contacted, booked, completed, lost
+- [x] **LEAD-01**: AI extracts lead info from call transcripts (name, phone, service interest, urgency)
+- [x] **LEAD-02**: Each lead receives a 1-10 score based on call analysis
+- [x] **LEAD-03**: Leads have status tracking: new, contacted, booked, completed, lost
 
 ### Owner Notifications
 
-- [ ] **NOTF-01**: Owner receives SMS alert for urgent leads (score 9-10) with callback number
-- [ ] **NOTF-02**: Owner receives daily SMS summary (total calls, new leads, booked appointments)
+- [x] **NOTF-01**: Owner receives SMS alert for urgent leads (score 9-10) with callback number
+- [x] **NOTF-02**: Owner receives daily SMS summary (total calls, new leads, booked appointments)
 
 ### Dashboard
 
-- [ ] **DASH-01**: Call log page with search/filter and click-through to full transcript + recording
-- [ ] **DASH-02**: Leads page with status pipeline view and quick actions (mark contacted/booked/lost)
-- [ ] **DASH-03**: Knowledge base editor with CRUD by category (services, pricing, FAQ, hours, policies)
-- [ ] **DASH-04**: Basic analytics showing calls today, leads this week, avg call duration
+- [x] **DASH-01**: Call log page with search/filter and click-through to full transcript + recording
+- [x] **DASH-02**: Leads page with status pipeline view and quick actions (mark contacted/booked/lost)
+- [x] **DASH-03**: Knowledge base editor with CRUD by category (services, pricing, FAQ, hours, policies)
+- [x] **DASH-04**: Basic analytics showing calls today, leads this week, avg call duration
 
 ### AI Agent Config
 
-- [ ] **AGNT-01**: Agent personality, greeting, and sales style configurable per client
-- [ ] **AGNT-02**: Escalation rules configurable (when AI defers to owner)
-- [ ] **AGNT-03**: Voice selection from Retell's voice library
+- [x] **AGNT-01**: Agent personality, greeting, and sales style configurable per client
+- [x] **AGNT-02**: Escalation rules configurable (when AI defers to owner)
+- [x] **AGNT-03**: Voice selection from Retell's voice library
 
 ## v2 Requirements
 
@@ -78,21 +78,21 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CALL-01 | 1 | Pending |
-| CALL-02 | 1 | Pending |
-| CALL-03 | 1 | Pending |
-| LEAD-01 | 1 | Pending |
-| LEAD-02 | 1 | Pending |
-| LEAD-03 | 1 | Pending |
-| NOTF-01 | 1 | Pending |
-| NOTF-02 | 1 | Pending |
-| DASH-01 | 1 | Pending |
-| DASH-02 | 1 | Pending |
-| DASH-03 | 1 | Pending |
-| DASH-04 | 1 | Pending |
-| AGNT-01 | 1 | Pending |
-| AGNT-02 | 1 | Pending |
-| AGNT-03 | 1 | Pending |
+| CALL-01 | 1 | Complete |
+| CALL-02 | 1 | Complete |
+| CALL-03 | 1 | Complete |
+| LEAD-01 | 1 | Complete |
+| LEAD-02 | 1 | Complete |
+| LEAD-03 | 1 | Complete |
+| NOTF-01 | 1 | Complete |
+| NOTF-02 | 1 | Complete |
+| DASH-01 | 1 | Complete |
+| DASH-02 | 1 | Complete |
+| DASH-03 | 1 | Complete |
+| DASH-04 | 1 | Complete |
+| AGNT-01 | 1 | Complete |
+| AGNT-02 | 1 | Complete |
+| AGNT-03 | 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 15 total
