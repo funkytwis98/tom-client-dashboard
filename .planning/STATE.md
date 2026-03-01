@@ -2,21 +2,21 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 02 / 9
-status: unknown
-stopped_at: Completed 01-inbound-call-loop-owner-control-02-PLAN.md
-last_updated: "2026-03-01T19:46:29.333Z"
+current_plan: 06 / 9
+status: in_progress
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-03-01T20:01:38.390Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 9
-  completed_plans: 2
-  percent: 22
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State — AI Phone Receptionist
 
-**Last Updated:** 2026-03-01 (Plan 01-02 executed)
+**Last Updated:** 2026-03-01 (Plan 01-06 executed)
 **Milestone:** v1 (MVP)
 
 ---
@@ -37,11 +37,11 @@ progress:
 
 **Roadmap Status:** ✓ Complete (Phase 1 identified)
 **Phase:** 1 / 1 (Inbound Call Loop & Owner Control)
-**Current Plan:** 02 / 9
-**Progress:** [██░░░░░░░░] 22%
+**Current Plan:** 06 / 9
+**Progress:** [███░░░░░░░] 33%
 
-**Stopped At:** Completed 01-inbound-call-loop-owner-control-02-PLAN.md
-**Next Action:** Execute Plan 01-03
+**Stopped At:** Completed 01-06-PLAN.md
+**Next Action:** Execute Plan 01-07
 
 ---
 
@@ -99,6 +99,8 @@ progress:
 | Next.js 15 (not 14) | Latest stable, compatible with all planned dependencies | ✓ Locked (Plan 01-01) |
 | Eager env for NEXT_PUBLIC_ vars, lazy functions for server-only secrets | Prevents build errors, client bundles need NEXT_PUBLIC_ at compile time | ✓ Locked (Plan 01-02) |
 | Domain types as plain interfaces (not Supabase-generated) | Portable, readable, decoupled from DB client library version | ✓ Locked (Plan 01-02) |
+| Retell agent sync via llm.update (not agent.update) | System prompt lives on LLM object; must retrieve agent to get llm_id first | ✓ Locked (Plan 01-06) |
+| Mock Supabase is_active filter in unit tests | Mocks simulate server-side filtering so tests accurately reflect DB behavior | ✓ Locked (Plan 01-06) |
 
 ---
 
@@ -167,9 +169,9 @@ progress:
 
 ## Session Continuity
 
-**Last session:** 2026-03-01T19:45:15Z
-**Stopped at:** Completed 01-02-PLAN.md
-**Next action:** Execute 01-03-PLAN.md
+**Last session:** 2026-03-01T20:01:38.387Z
+**Stopped at:** Completed 01-06-PLAN.md
+**Next action:** Execute 01-07-PLAN.md
 
 **Plan 01-01 execution:**
 - Duration: 7 min
@@ -184,6 +186,13 @@ progress:
 - Files created: 4 (+ 2 modified)
 - Commits: b9df9f1, 640a352
 - SUMMARY: .planning/phases/01-inbound-call-loop-owner-control/01-02-SUMMARY.md
+
+**Plan 01-06 execution:**
+- Duration: 9 min
+- Tasks completed: 2/2
+- Files created: 7
+- Commits: b86646e (test), 7a16901 (feat), d3c30e6 (feat)
+- SUMMARY: .planning/phases/01-inbound-call-loop-owner-control/01-06-SUMMARY.md
 
 ---
 
