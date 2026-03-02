@@ -4,7 +4,9 @@ import { getClientByAgentId } from '@/lib/retell/client'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAfterHours } from '@/lib/utils/time'
 import { analyzeCallTranscript } from '@/lib/analysis/lead-extraction'
+import { sendOwnerSMS } from '@/lib/notifications/twilio'
 import type { RetellWebhookEvent } from '@/types/retell'
+import type { NotificationPayload } from '@/types/api'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/retell
@@ -150,32 +152,33 @@ async function handleCallEnded(
 
   // Lead extraction — analyze transcript with Claude Haiku
   let leadId: string | null = null
+  let callAnalysis: Awaited<ReturnType<typeof analyzeCallTranscript>> | null = null
   try {
-    const analysis = await analyzeCallTranscript(call.transcript)
+    callAnalysis = await analyzeCallTranscript(call.transcript)
 
     // Update call record with AI-derived fields
     await supabase
       .from('calls')
       .update({
-        sentiment: analysis.sentiment,
-        lead_score: analysis.lead_score,
-        summary: analysis.summary,
-        caller_name: analysis.caller_name,
+        sentiment: callAnalysis.sentiment,
+        lead_score: callAnalysis.lead_score,
+        summary: callAnalysis.summary,
+        caller_name: callAnalysis.caller_name,
       })
       .eq('retell_call_id', call.call_id)
 
     // Create lead record if this call has lead potential
-    if (analysis.is_lead) {
+    if (callAnalysis.is_lead) {
       const { data: leadRecord } = await supabase
         .from('leads')
         .insert({
           client_id: client.id,
           call_id: callRecord?.id ?? null,
-          name: analysis.caller_name,
+          name: callAnalysis.caller_name,
           phone: call.from_number,
-          service_interested: analysis.service_interested,
-          notes: analysis.notes,
-          urgency: analysis.urgency,
+          service_interested: callAnalysis.service_interested,
+          notes: callAnalysis.notes,
+          urgency: callAnalysis.urgency,
           status: 'new',
           owner_notified: false,
         })
@@ -189,8 +192,36 @@ async function handleCallEnded(
     console.error('[retell-webhook] Lead extraction failed:', err)
   }
 
-  // TODO(Plan 05): trigger owner notification if analysis.lead_score >= 9
-  void leadId // referenced in Plan 05 notification
+  // Notify business owner via SMS
+  if (client.owner_phone) {
+    try {
+      const isUrgent = callAnalysis && callAnalysis.lead_score >= 9
+      const isMissed = status !== 'completed'
+
+      const payload: NotificationPayload = {
+        client_id: client.id,
+        call_id: callRecord?.id ?? undefined,
+        lead_id: leadId ?? undefined,
+        type: isUrgent ? 'urgent' : isMissed ? 'missed_call' : 'new_lead',
+        recipient_phone: client.owner_phone,
+        lead_score: callAnalysis?.lead_score ?? undefined,
+        caller_name: callAnalysis?.caller_name ?? undefined,
+        caller_number: call.from_number,
+        summary: callAnalysis?.summary ?? undefined,
+        service: callAnalysis?.service_interested ?? undefined,
+      }
+
+      await sendOwnerSMS(payload, supabase)
+
+      // Mark lead as owner_notified
+      if (leadId) {
+        await supabase.from('leads').update({ owner_notified: true }).eq('id', leadId)
+      }
+    } catch (err) {
+      // Non-fatal — call is already logged, notification is best-effort
+      console.error('[retell-webhook] Owner notification failed:', err)
+    }
+  }
 }
 
 async function handleCallAnalyzed(
