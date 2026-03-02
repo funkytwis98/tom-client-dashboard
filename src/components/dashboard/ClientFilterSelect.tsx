@@ -5,15 +5,27 @@ import { useRouter } from 'next/navigation'
 interface ClientFilterSelectProps {
   clients: { id: string; name: string }[]
   currentValue: string
-  buildHref: (clientId: string) => string
+  basePath: string
+  currentParams: Record<string, string>
 }
 
 export function ClientFilterSelect({
   clients,
   currentValue,
-  buildHref,
+  basePath,
+  currentParams,
 }: ClientFilterSelectProps) {
   const router = useRouter()
+
+  function buildHref(clientId: string) {
+    const sp = new URLSearchParams()
+    const merged = { ...currentParams, client: clientId }
+    for (const [k, v] of Object.entries(merged)) {
+      if (v && v !== 'all') sp.set(k, v)
+    }
+    const qs = sp.toString()
+    return `${basePath}${qs ? `?${qs}` : ''}`
+  }
 
   return (
     <select

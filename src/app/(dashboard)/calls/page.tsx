@@ -154,7 +154,11 @@ export default async function CallsPage({ searchParams }: CallsPageProps) {
             <ClientFilterSelect
               clients={clients}
               currentValue={clientFilter ?? 'all'}
-              buildHref={(val) => filterHref({ client: val })}
+              basePath="/calls"
+              currentParams={{
+                direction: direction ?? 'all',
+                status: status ?? 'all',
+              }}
             />
           </div>
         )}

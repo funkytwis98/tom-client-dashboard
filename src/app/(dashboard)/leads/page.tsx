@@ -175,7 +175,11 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
             <ClientFilterSelect
               clients={clients}
               currentValue={clientFilter ?? 'all'}
-              buildHref={(val) => filterHref({ client: val })}
+              basePath="/leads"
+              currentParams={{
+                status: status ?? 'all',
+                urgency: urgency ?? 'all',
+              }}
             />
           </div>
         )}
