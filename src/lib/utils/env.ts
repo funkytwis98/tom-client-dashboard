@@ -10,12 +10,12 @@ function optionalEnv(name: string, defaultValue = ''): string {
   return process.env[name] ?? defaultValue
 }
 
-// Validated env — accessing any key throws if the var is missing
+// Validated env — all accessors are lazy (functions) to avoid build-time throws
 export const env = {
   // Supabase
-  supabaseUrl: requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
-  supabaseAnonKey: requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-  supabaseServiceRoleKey: () => requireEnv('SUPABASE_SERVICE_ROLE_KEY'),  // lazy — server only
+  supabaseUrl: () => requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
+  supabaseAnonKey: () => requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+  supabaseServiceRoleKey: () => requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
 
   // Retell AI
   retellApiKey: () => requireEnv('RETELL_API_KEY'),

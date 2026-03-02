@@ -7,7 +7,7 @@ import { env } from '@/lib/utils/env'
  * Never expose to the client bundle.
  */
 export function createServiceClient() {
-  return createClient(env.supabaseUrl, env.supabaseServiceRoleKey(), {
+  return createClient(env.supabaseUrl(), env.supabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
