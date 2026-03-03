@@ -25,6 +25,29 @@ export function formatUrgentLeadSMS(payload: NotificationPayload): string {
 }
 
 /**
+ * Formats a new lead SMS alert to the business owner.
+ * Standard (non-urgent) lead notification. Keep under 300 chars.
+ */
+export function formatNewLeadSMS(payload: NotificationPayload): string {
+  const name = payload.caller_name ?? 'Someone'
+  const service = payload.service ?? 'your services'
+  const score = payload.lead_score != null ? ` Score: ${payload.lead_score}/10.` : ''
+  const phone = payload.caller_number ? ` Callback: ${payload.caller_number}.` : ''
+
+  const parts = [`New lead: ${name} called about ${service}.${score}${phone}`]
+
+  if (payload.summary) {
+    const prefix = parts[0]
+    const remaining = 295 - prefix.length - 1
+    if (remaining > 20) {
+      parts.push(payload.summary.slice(0, remaining))
+    }
+  }
+
+  return parts.join(' ')
+}
+
+/**
  * Formats a missed call SMS notification to the business owner.
  * Includes caller number, time, and optional summary.
  */

@@ -2,7 +2,20 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { updateRetellAgent } from '@/lib/retell/agent-builder'
 import { z } from 'zod'
+
+/**
+ * Fire-and-forget Retell sync — logs failures but never throws.
+ * Called after knowledge base mutations so the AI prompt stays current.
+ */
+async function syncRetellInBackground(clientId: string) {
+  try {
+    await updateRetellAgent(clientId)
+  } catch (err) {
+    console.error('[knowledge] Retell sync failed (non-blocking):', err)
+  }
+}
 
 const KnowledgeEntrySchema = z.object({
   id: z.string().uuid().optional(),
@@ -47,6 +60,7 @@ export async function saveKnowledgeEntry(formData: KnowledgeEntryInput) {
   if (error) throw new Error(error.message)
 
   revalidatePath(`/clients/${parsed.client_id}/knowledge`)
+  syncRetellInBackground(parsed.client_id)
   return { success: true, entry: data }
 }
 
@@ -65,6 +79,7 @@ export async function deleteKnowledgeEntry(entryId: string, clientId: string) {
   if (error) throw new Error(error.message)
 
   revalidatePath(`/clients/${clientId}/knowledge`)
+  syncRetellInBackground(clientId)
   return { success: true }
 }
 

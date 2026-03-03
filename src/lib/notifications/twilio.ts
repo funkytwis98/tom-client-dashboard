@@ -1,6 +1,6 @@
 import twilio from 'twilio'
 import { env } from '@/lib/utils/env'
-import { formatUrgentLeadSMS, formatMissedCallSMS, formatDailySummarySMS } from './templates'
+import { formatNewLeadSMS, formatUrgentLeadSMS, formatMissedCallSMS, formatDailySummarySMS } from './templates'
 import type { NotificationPayload } from '@/types/api'
 import type { createServiceClient } from '@/lib/supabase/service'
 
@@ -33,6 +33,8 @@ function formatMessageForType(payload: NotificationPayload): string {
   switch (payload.type) {
     case 'urgent':
       return formatUrgentLeadSMS(payload)
+    case 'new_lead':
+      return formatNewLeadSMS(payload)
     case 'missed_call':
       return formatMissedCallSMS(payload)
     case 'daily_summary':
