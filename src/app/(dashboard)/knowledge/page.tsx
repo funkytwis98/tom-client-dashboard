@@ -5,7 +5,7 @@ import type { Client } from '@/types/domain'
 
 export default async function KnowledgePage() {
   let clients: Client[] = []
-  let entryCounts: Record<string, number> = {}
+  const entryCounts: Record<string, number> = {}
 
   try {
     const supabase = await createClient()
