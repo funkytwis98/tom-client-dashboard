@@ -5,10 +5,10 @@ import Retell from 'retell-sdk'
  * using the official Retell SDK.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function verifyRetellSignature(body: string, signature: string | null, apiKey: string): boolean {
+export async function verifyRetellSignature(body: string, signature: string | null, apiKey: string): Promise<boolean> {
   if (!signature) return false
   try {
-    return Retell.verify(body, apiKey, signature)
+    return await Retell.verify(body, apiKey, signature)
   } catch (err) {
     console.error('[webhook-verify] Verification error:', err)
     return false
