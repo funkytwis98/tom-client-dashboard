@@ -1,13 +1,16 @@
+import Retell from 'retell-sdk'
+
 /**
- * Retell webhook signature verification.
- * TODO: Re-enable once signing key issue is resolved.
+ * Verifies the signature on incoming Retell webhook requests
+ * using the official Retell SDK.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function verifyRetellSignature(body: string, signature: string | null, apiKey: string): boolean {
-  if (!signature) {
-    console.warn('[webhook-verify] No signature provided — skipping verification (TEMP)')
-    return true
+  if (!signature) return false
+  try {
+    return Retell.verify(body, apiKey, signature)
+  } catch (err) {
+    console.error('[webhook-verify] Verification error:', err)
+    return false
   }
-  console.warn('[webhook-verify] Signature check bypassed (TEMP)')
-  return true
 }
