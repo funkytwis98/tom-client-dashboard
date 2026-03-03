@@ -2,11 +2,8 @@
  * Retell webhook signature verification.
  * TODO: Re-enable once signing key issue is resolved.
  */
-export function verifyRetellSignature(
-  _body: string,
-  signature: string | null,
-  _apiKey: string
-): boolean {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function verifyRetellSignature(body: string, signature: string | null, apiKey: string): boolean {
   if (!signature) {
     console.warn('[webhook-verify] No signature provided — skipping verification (TEMP)')
     return true
