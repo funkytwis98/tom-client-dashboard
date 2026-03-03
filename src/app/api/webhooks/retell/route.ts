@@ -19,7 +19,7 @@ export async function POST(req: Request): Promise<Response> {
 
   // 2. Verify Retell HMAC-SHA256 signature
   const signature = req.headers.get('x-retell-signature')
-  if (!verifyRetellSignature(body, signature, env.retellApiKey())) {
+  if (!await verifyRetellSignature(body, signature, env.retellApiKey())) {
     return Response.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
