@@ -77,3 +77,68 @@ export async function getClient(id: string): Promise<Client | null> {
   if (error) return null
   return data as Client
 }
+
+const UpdateClientSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1, 'Business name is required').max(200),
+  owner_name: z.string().min(1, 'Owner name is required').max(200),
+  owner_phone: z.string().min(1, 'Owner phone is required').max(30),
+  owner_email: z.string().email().max(200).optional().or(z.literal('')),
+  timezone: z.string().default('America/New_York'),
+  subscription_tier: z.enum(['standard', 'premium', 'enterprise']).default('standard'),
+  subscription_status: z.enum(['active', 'paused', 'cancelled']).default('active'),
+  phone_number: z.string().max(30).optional().or(z.literal('')),
+  retell_agent_id: z.string().max(200).optional().or(z.literal('')),
+})
+
+export type UpdateClientInput = z.infer<typeof UpdateClientSchema>
+
+export async function updateClient(formData: UpdateClientInput) {
+  const parsed = UpdateClientSchema.parse(formData)
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: org, error: orgError } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
+
+  if (orgError || !org) throw new Error('Organization not found')
+
+  // Verify client belongs to this org
+  const { data: existing } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('id', parsed.id)
+    .eq('org_id', org.id)
+    .single()
+
+  if (!existing) throw new Error('Client not found')
+
+  const { error } = await supabase
+    .from('clients')
+    .update({
+      name: parsed.name,
+      owner_name: parsed.owner_name,
+      owner_phone: parsed.owner_phone,
+      owner_email: parsed.owner_email || null,
+      timezone: parsed.timezone,
+      subscription_tier: parsed.subscription_tier,
+      subscription_status: parsed.subscription_status,
+      phone_number: parsed.phone_number || null,
+      retell_agent_id: parsed.retell_agent_id || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', parsed.id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/clients')
+  revalidatePath(`/clients/${parsed.id}`)
+  return { success: true }
+}
