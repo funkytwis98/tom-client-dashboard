@@ -189,7 +189,8 @@ async function handleCallEnded(
     }
   } catch (err) {
     // Non-fatal — call is already logged, analysis is best-effort
-    console.error('[retell-webhook] Lead extraction failed:', err)
+    console.error("[retell-webhook] Lead extraction failed:", String(err))
+      await supabase.from("calls").update({ call_metadata: { lead_extraction_error: String(err) } }).eq("retell_call_id", call.call_id)
   }
 
   // Notify business owner via SMS
