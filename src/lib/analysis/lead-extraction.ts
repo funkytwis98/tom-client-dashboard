@@ -59,7 +59,7 @@ Transcript:
  */
 export async function analyzeCallTranscript(transcript: string): Promise<LeadAnalysis> {
   const message = await getClient().messages.create({
-    model: 'claude-3-5-haiku-20241022',  // Haiku — fast + cheap for extraction
+    model: 'claude-haiku-4-5-20251001',  // Haiku — fast + cheap for extraction
     max_tokens: 400,
     messages: [
       {
