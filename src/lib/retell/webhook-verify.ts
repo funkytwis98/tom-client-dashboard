@@ -1,11 +1,8 @@
-import crypto from 'crypto'
+import Retell from 'retell-sdk'
 
 /**
- * Verifies the HMAC-SHA256 signature on incoming Retell webhook requests.
- * Retell signs the raw request body with your API key and sends the hex digest
- * in the `x-retell-signature` header.
- *
- * Uses constant-time comparison to prevent timing attacks.
+ * Verifies the signature on incoming Retell webhook requests
+ * using the official Retell SDK.
  */
 export function verifyRetellSignature(
   body: string,
@@ -14,11 +11,7 @@ export function verifyRetellSignature(
 ): boolean {
   if (!signature) return false
   try {
-    const expected = crypto.createHmac('sha256', apiKey).update(body).digest('hex')
-    const sigBuffer = Buffer.from(signature, 'hex')
-    const expectedBuffer = Buffer.from(expected, 'hex')
-    if (sigBuffer.length !== expectedBuffer.length) return false
-    return crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+    return Retell.verify(body, apiKey, signature)
   } catch {
     return false
   }
