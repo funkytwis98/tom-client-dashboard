@@ -188,7 +188,7 @@ export default async function DashboardPage() {
                     {formatDuration(call.duration_seconds)}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {new Date(call.created_at).toLocaleDateString()}
+                    {new Date(call.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                   </p>
                 </div>
               </li>

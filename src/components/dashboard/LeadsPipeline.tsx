@@ -182,6 +182,15 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
                             Lost
                           </button>
                         )}
+                        {lead.status === 'booked' && (
+                          <button
+                            onClick={() => handleStatusChange(lead.id, 'completed')}
+                            disabled={isPending}
+                            className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+                          >
+                            Completed
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

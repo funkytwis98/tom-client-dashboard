@@ -11,6 +11,17 @@ import { z } from 'zod'
  */
 async function syncRetellInBackground(clientId: string) {
   try {
+    // Check if client has a Retell agent configured before attempting sync
+    const supabase = await createClient()
+    const { data: client } = await supabase
+      .from('clients')
+      .select('retell_agent_id')
+      .eq('id', clientId)
+      .single()
+    if (!client?.retell_agent_id) {
+      console.warn('[knowledge] Skipping Retell sync — no agent_id for client', clientId)
+      return
+    }
     await updateRetellAgent(clientId)
   } catch (err) {
     console.error('[knowledge] Retell sync failed (non-blocking):', err)
