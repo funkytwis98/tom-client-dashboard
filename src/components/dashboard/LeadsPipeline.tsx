@@ -44,6 +44,7 @@ function formatDate(dateStr: string): string {
 
 export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
   const [activeTab, setActiveTab] = useState<StatusFilter>('all')
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [optimisticLeads, updateOptimistic] = useOptimistic(
     initialLeads,
@@ -53,8 +54,13 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
 
   function handleStatusChange(leadId: string, status: Lead['status']) {
     startTransition(async () => {
+      setActionError(null)
       updateOptimistic({ leadId, status })
-      await updateLeadStatus(leadId, status, clientId)
+      try {
+        await updateLeadStatus(leadId, status, clientId)
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Failed to update lead status')
+      }
     })
   }
 
@@ -65,6 +71,17 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
 
   return (
     <div>
+      {actionError && (
+        <div className="mb-4 flex items-center justify-between rounded-md bg-red-50 border border-red-200 px-4 py-3">
+          <p className="text-sm text-red-700">{actionError}</p>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-red-400 hover:text-red-600 text-sm font-medium"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Filter tabs */}
       <div className="flex gap-1 mb-4 border-b border-gray-200">
         {STATUS_TABS.map((tab) => {

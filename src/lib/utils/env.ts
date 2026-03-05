@@ -31,6 +31,7 @@ export const env = {
 
   // Other
   revalidateSecret: () => requireEnv('REVALIDATE_SECRET'),
+  adminAlertPhone: () => optionalEnv('ADMIN_ALERT_PHONE', ''),
   nodeEnv: optionalEnv('NODE_ENV', 'development'),
 } as const
 

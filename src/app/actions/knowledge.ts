@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { updateRetellAgent } from '@/lib/retell/agent-builder'
+import { reportError } from '@/lib/monitoring/report-error'
 import { z } from 'zod'
 
 /**
@@ -25,6 +26,11 @@ async function syncRetellInBackground(clientId: string) {
     await updateRetellAgent(clientId)
   } catch (err) {
     console.error('[knowledge] Retell sync failed (non-blocking):', err)
+    reportError({
+      type: 'retell_sync',
+      message: String(err),
+      clientId,
+    })
   }
 }
 

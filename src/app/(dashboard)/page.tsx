@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Analytics } from '@/components/dashboard/Analytics'
+import { SystemHealth } from '@/components/dashboard/SystemHealth'
 import Link from 'next/link'
 import type { Call } from '@/types/domain'
 
@@ -52,6 +53,11 @@ export default async function DashboardPage() {
         <p className="text-sm text-gray-500 mt-1">
           Monitor your AI receptionist activity
         </p>
+      </div>
+
+      {/* System health */}
+      <div className="mb-8">
+        <SystemHealth />
       </div>
 
       {/* Analytics stats — server-side queries */}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { parseOwnerCommand } from '@/lib/notifications/parser'
 import { verifyTwilioSignature } from '@/lib/notifications/twilio'
 import { createServiceClient } from '@/lib/supabase/service'
+import { reportError } from '@/lib/monitoring/report-error'
 import { env } from '@/lib/utils/env'
 
 /**
@@ -45,75 +46,85 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createServiceClient()
 
-  // Find the client whose owner matches the sender phone number
-  const { data: client, error: clientError } = await supabase
-    .from('clients')
-    .select('id, owner_phone')
-    .eq('owner_phone', from)
-    .single()
-
-  if (clientError || !client) {
-    console.warn('[twilio-sms] No client found for owner_phone:', from)
-    return twimlResponse('Unknown sender.')
-  }
-
-  // Get most recent notification for this client (to know which lead to update)
-  const { data: recentNotification } = await supabase
-    .from('notifications')
-    .select('id, lead_id')
-    .eq('client_id', client.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  // Parse owner command
-  const command = parseOwnerCommand(body)
-
-  // Update lead status based on command action
-  if (recentNotification?.lead_id && command.action !== 'unknown' && command.action !== 'pause' && command.action !== 'resume') {
-    const statusMap: Record<string, string> = {
-      contacted: 'contacted',
-      booked: 'booked',
-      lost: 'lost',
-    }
-    const newStatus = statusMap[command.action]
-    if (newStatus) {
-      await supabase
-        .from('leads')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', recentNotification.lead_id)
-    }
-  }
-
-  // Handle pause/resume by updating client settings
-  if (command.action === 'pause' || command.action === 'resume') {
-    await supabase
+  try {
+    // Find the client whose owner matches the sender phone number
+    const { data: client, error: clientError } = await supabase
       .from('clients')
-      .update({
-        settings: { notifications_paused: command.action === 'pause' },
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', client.id)
-  }
+      .select('id, owner_phone')
+      .eq('owner_phone', from)
+      .single()
 
-  // Log owner_response on the most recent notification
-  if (recentNotification) {
-    await supabase
+    if (clientError || !client) {
+      console.warn('[twilio-sms] No client found for owner_phone:', from)
+      return twimlResponse('Unknown sender.')
+    }
+
+    // Get most recent notification for this client (to know which lead to update)
+    const { data: recentNotification } = await supabase
       .from('notifications')
-      .update({ owner_response: body })
-      .eq('id', recentNotification.id)
-  }
+      .select('id, lead_id')
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
 
-  const confirmationMessages: Record<string, string> = {
-    contacted: 'Got it! Lead marked as contacted.',
-    booked: 'Got it! Lead marked as booked.',
-    lost: 'Got it! Lead marked as lost.',
-    pause: 'Notifications paused. Text "resume" to turn them back on.',
-    resume: 'Notifications resumed.',
-    unknown: 'Got it!',
-  }
+    // Parse owner command
+    const command = parseOwnerCommand(body)
 
-  return twimlResponse(confirmationMessages[command.action] ?? 'Got it!')
+    // Update lead status based on command action
+    if (recentNotification?.lead_id && command.action !== 'unknown' && command.action !== 'pause' && command.action !== 'resume') {
+      const statusMap: Record<string, string> = {
+        contacted: 'contacted',
+        booked: 'booked',
+        lost: 'lost',
+      }
+      const newStatus = statusMap[command.action]
+      if (newStatus) {
+        await supabase
+          .from('leads')
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq('id', recentNotification.lead_id)
+      }
+    }
+
+    // Handle pause/resume by updating client settings
+    if (command.action === 'pause' || command.action === 'resume') {
+      await supabase
+        .from('clients')
+        .update({
+          settings: { notifications_paused: command.action === 'pause' },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', client.id)
+    }
+
+    // Log owner_response on the most recent notification
+    if (recentNotification) {
+      await supabase
+        .from('notifications')
+        .update({ owner_response: body })
+        .eq('id', recentNotification.id)
+    }
+
+    const confirmationMessages: Record<string, string> = {
+      contacted: 'Got it! Lead marked as contacted.',
+      booked: 'Got it! Lead marked as booked.',
+      lost: 'Got it! Lead marked as lost.',
+      pause: 'Notifications paused. Text "resume" to turn them back on.',
+      resume: 'Notifications resumed.',
+      unknown: 'Got it!',
+    }
+
+    return twimlResponse(confirmationMessages[command.action] ?? 'Got it!')
+  } catch (err) {
+    console.error('[twilio-sms] Handler error:', err)
+    reportError({
+      type: 'twilio_webhook',
+      message: String(err),
+      context: { from, body },
+    })
+    return twimlResponse('Sorry, something went wrong. Please try again.')
+  }
 }
 
 /**

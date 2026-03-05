@@ -6,6 +6,7 @@ import { isAfterHours } from '@/lib/utils/time'
 import { analyzeCallTranscript } from '@/lib/analysis/lead-extraction'
 import { sendOwnerSMS } from '@/lib/notifications/twilio'
 import type { RetellWebhookEvent } from '@/types/retell'
+import { reportError } from '@/lib/monitoring/report-error'
 import type { NotificationPayload } from '@/types/api'
 
 // ---------------------------------------------------------------------------
@@ -192,6 +193,13 @@ async function handleCallEnded(
   } catch (err) {
     // Non-fatal — call is already logged, analysis is best-effort
     console.error("[retell-webhook] Lead extraction failed:", String(err))
+    reportError({
+      type: 'lead_extraction',
+      message: String(err),
+      clientId: client.id,
+      callId: callRecord?.id ?? undefined,
+      context: { retell_call_id: call.call_id },
+    })
     // Merge error into existing metadata instead of replacing it
     const { data: existing } = await supabase
       .from('calls')

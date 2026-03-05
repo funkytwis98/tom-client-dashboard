@@ -2,6 +2,7 @@ import twilio from 'twilio'
 import { env } from '@/lib/utils/env'
 import { formatNewLeadSMS, formatUrgentLeadSMS, formatMissedCallSMS, formatDailySummarySMS } from './templates'
 import type { NotificationPayload } from '@/types/api'
+import { reportError } from '@/lib/monitoring/report-error'
 import type { createServiceClient } from '@/lib/supabase/service'
 
 // Singleton Twilio client — created once, reused across requests in the same process
@@ -67,6 +68,13 @@ export async function sendOwnerSMS(
   } catch (err) {
     status = 'failed'
     console.error('[sendOwnerSMS] Twilio send failed:', err)
+    reportError({
+      type: 'owner_sms',
+      message: String(err),
+      clientId: payload.client_id,
+      callId: payload.call_id,
+      context: { recipient: payload.recipient_phone, notification_type: payload.type },
+    })
   }
 
   // Always log the notification attempt regardless of Twilio success/failure
