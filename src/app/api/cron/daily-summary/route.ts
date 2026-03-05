@@ -4,6 +4,7 @@ import { sendOwnerSMS } from '@/lib/notifications/twilio'
 import { formatDailySummarySMS } from '@/lib/notifications/templates'
 import { env } from '@/lib/utils/env'
 import type { DailySummary } from '@/types/api'
+import { rateLimit, rateLimitResponse } from '@/lib/middleware/rate-limit'
 
 /**
  * POST /api/cron/daily-summary
@@ -16,6 +17,10 @@ import type { DailySummary } from '@/types/api'
  * Returns: { sent: number, errors: string[] }
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Rate limit: 5 requests per minute per IP
+  const rl = rateLimit(req, { limit: 5, windowMs: 60_000 })
+  if (!rl.success) return rateLimitResponse(rl) as unknown as NextResponse
+
   // Validate cron secret to prevent unauthorized execution
   const authHeader = req.headers.get('authorization') ?? ''
   const expectedSecret = `Bearer ${env.revalidateSecret()}`

@@ -4,6 +4,7 @@ import { verifyTwilioSignature } from '@/lib/notifications/twilio'
 import { createServiceClient } from '@/lib/supabase/service'
 import { reportError } from '@/lib/monitoring/report-error'
 import { env } from '@/lib/utils/env'
+import { rateLimit, rateLimitResponse } from '@/lib/middleware/rate-limit'
 
 /**
  * POST /api/webhooks/twilio-sms
@@ -17,6 +18,10 @@ import { env } from '@/lib/utils/env'
  * 6. Returns TwiML response
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Rate limit: 30 requests per minute per IP
+  const rl = rateLimit(req, { limit: 30, windowMs: 60_000 })
+  if (!rl.success) return rateLimitResponse(rl) as unknown as NextResponse
+
   // Parse URL-encoded form body (Twilio sends application/x-www-form-urlencoded)
   let formData: URLSearchParams
   try {

@@ -1,6 +1,7 @@
 import { env } from '@/lib/utils/env'
 import { createServiceClient } from '@/lib/supabase/service'
 import { analyzeCallTranscript } from '@/lib/analysis/lead-extraction'
+import { rateLimit, rateLimitResponse } from '@/lib/middleware/rate-limit'
 
 /**
  * POST /api/admin/backfill-leads
@@ -10,6 +11,10 @@ import { analyzeCallTranscript } from '@/lib/analysis/lead-extraction'
  * Requires: Authorization: Bearer <REVALIDATE_SECRET>
  */
 export async function POST(req: Request): Promise<Response> {
+  // Rate limit: 5 requests per minute per IP
+  const rl = rateLimit(req, { limit: 5, windowMs: 60_000 })
+  if (!rl.success) return rateLimitResponse(rl)
+
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${env.revalidateSecret()}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })

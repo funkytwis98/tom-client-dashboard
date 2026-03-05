@@ -8,6 +8,7 @@ import { sendOwnerSMS } from '@/lib/notifications/twilio'
 import type { RetellWebhookEvent } from '@/types/retell'
 import { reportError } from '@/lib/monitoring/report-error'
 import type { NotificationPayload } from '@/types/api'
+import { rateLimit, rateLimitResponse } from '@/lib/middleware/rate-limit'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/retell
@@ -15,6 +16,10 @@ import type { NotificationPayload } from '@/types/api'
 // ---------------------------------------------------------------------------
 
 export async function POST(req: Request): Promise<Response> {
+  // Rate limit: 60 requests per minute per IP
+  const rl = rateLimit(req, { limit: 60, windowMs: 60_000 })
+  if (!rl.success) return rateLimitResponse(rl)
+
   // 1. Read raw body text (needed for signature verification before JSON parsing)
   const body = await req.text()
 
