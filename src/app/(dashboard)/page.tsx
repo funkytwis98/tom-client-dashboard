@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { Analytics } from '@/components/dashboard/Analytics'
 import { SystemHealth } from '@/components/dashboard/SystemHealth'
+import { CallVolumeChart } from '@/components/dashboard/CallVolumeChart'
 import Link from 'next/link'
-import type { Call } from '@/types/domain'
+import type { Call, Lead } from '@/types/domain'
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return '—'
@@ -34,17 +35,81 @@ function sentimentBadge(sentiment: string | null) {
   )
 }
 
+function urgencyBadge(urgency: string) {
+  const map: Record<string, string> = {
+    urgent: 'bg-red-100 text-red-700',
+    high: 'bg-orange-100 text-orange-700',
+    medium: 'bg-yellow-50 text-yellow-700',
+    low: 'bg-gray-100 text-gray-600',
+  }
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+        map[urgency] ?? 'bg-gray-100 text-gray-600'
+      }`}
+    >
+      {urgency}
+    </span>
+  )
+}
+
+async function getCallVolumeData(supabase: Awaited<ReturnType<typeof createClient>>, clientId?: string) {
+  const days = 14
+  const results: { date: string; calls: number }[] = []
+  const now = new Date()
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString()
+    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString()
+
+    let q = supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd)
+      .neq('status', 'in_progress')
+    if (clientId) q = q.eq('client_id', clientId)
+
+    const { count } = await q
+    results.push({
+      date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      calls: count ?? 0,
+    })
+  }
+  return results
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
+  // Fetch recent calls with client name join
   const { data: recentCalls } = await supabase
     .from('calls')
-    .select('*')
+    .select('*, clients(name)')
     .neq('status', 'in_progress')
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const calls = (recentCalls ?? []) as (Call & { clients: { name: string } | null })[]
+
+  // Fetch hot leads — high/urgent urgency, new/contacted status, top 5 by lead_score
+  const { data: hotLeadsData } = await supabase
+    .from('leads')
+    .select('*, calls(lead_score), clients(name)')
+    .in('urgency', ['high', 'urgent'])
+    .in('status', ['new', 'contacted'])
     .order('created_at', { ascending: false })
     .limit(5)
 
-  const calls = (recentCalls ?? []) as Call[]
+  const hotLeads = (hotLeadsData ?? []) as (Lead & {
+    calls: { lead_score: number | null } | null
+    clients: { name: string } | null
+  })[]
+
+  // Call volume chart data
+  const chartData = await getCallVolumeData(supabase)
 
   return (
     <div className="p-8">
@@ -55,14 +120,17 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* System health */}
-      <div className="mb-8">
-        <SystemHealth />
-      </div>
+      {/* System health — hidden when all clear */}
+      <SystemHealth />
 
       {/* Analytics stats — server-side queries */}
       <div className="mb-8">
         <Analytics />
+      </div>
+
+      {/* Call volume chart */}
+      <div className="mb-8">
+        <CallVolumeChart data={chartData} />
       </div>
 
       {/* Quick Links */}
@@ -138,7 +206,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Recent calls */}
-      <div className="bg-white rounded-lg border border-gray-200">
+      <div className="bg-white rounded-lg border border-gray-200 mb-8">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-900">Recent Calls</h2>
           <Link
@@ -178,6 +246,11 @@ export default async function DashboardPage() {
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {call.caller_name ?? formatPhone(call.caller_number)}
                     </p>
+                    {call.clients?.name && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 font-medium">
+                        {call.clients.name}
+                      </span>
+                    )}
                     {sentimentBadge(call.sentiment)}
                     {call.lead_score != null && (
                       <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 font-medium">
@@ -202,6 +275,56 @@ export default async function DashboardPage() {
           </ul>
         )}
       </div>
+
+      {/* Hot Leads */}
+      {hotLeads.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900">Hot Leads</h2>
+            <Link
+              href="/leads"
+              className="text-sm text-indigo-600 hover:underline"
+            >
+              View all leads
+            </Link>
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {hotLeads.map((lead) => (
+              <li key={lead.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {lead.name ?? formatPhone(lead.phone)}
+                    </p>
+                    {lead.clients?.name && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 font-medium">
+                        {lead.clients.name}
+                      </span>
+                    )}
+                    {urgencyBadge(lead.urgency)}
+                    {lead.calls?.lead_score != null && (
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 font-medium">
+                        Score {lead.calls.lead_score}/10
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-gray-400 truncate">
+                    {lead.service_interested ?? 'No service specified'}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <Link
+                    href={`/clients/${lead.client_id}/leads`}
+                    className="text-xs text-indigo-600 hover:underline"
+                  >
+                    View
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

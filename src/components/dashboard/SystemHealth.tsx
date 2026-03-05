@@ -40,14 +40,7 @@ export async function SystemHealth() {
   const hasIssues = errors.length > 0 || failedSmsCount > 0 || failedExtractionCount > 0
 
   if (!hasIssues) {
-    return (
-      <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-green-500" />
-          <p className="text-sm font-medium text-green-800">All systems operational</p>
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (

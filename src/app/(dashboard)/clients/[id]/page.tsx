@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { getClient } from '@/app/actions/clients'
 import { EditClientForm } from '@/components/dashboard/EditClientForm'
 import { Analytics } from '@/components/dashboard/Analytics'
+import { CallVolumeChart } from '@/components/dashboard/CallVolumeChart'
+import { createClient } from '@/lib/supabase/server'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -16,10 +18,40 @@ const TABS = [
   { label: 'Agent', href: '/agent' },
 ]
 
+async function getCallVolumeData(clientId: string) {
+  const supabase = await createClient()
+  const days = 14
+  const results: { date: string; calls: number }[] = []
+  const now = new Date()
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString()
+    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString()
+
+    const { count } = await supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .gte('created_at', dayStart)
+      .lt('created_at', dayEnd)
+      .neq('status', 'in_progress')
+
+    results.push({
+      date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      calls: count ?? 0,
+    })
+  }
+  return results
+}
+
 export default async function ClientDetailPage({ params }: Props) {
   const { id } = await params
   const client = await getClient(id)
   if (!client) notFound()
+
+  const chartData = await getCallVolumeData(id)
 
   return (
     <div className="p-8">
@@ -63,6 +95,10 @@ export default async function ClientDetailPage({ params }: Props) {
 
       <div className="mb-8">
         <Analytics clientId={id} />
+      </div>
+
+      <div className="mb-8">
+        <CallVolumeChart data={chartData} />
       </div>
 
       <EditClientForm client={client} />

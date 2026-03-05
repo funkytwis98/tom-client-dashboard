@@ -37,6 +37,8 @@ export async function Analytics({ clientId }: AnalyticsProps) {
     { data: durationData },
     { count: bookedLeads },
     { count: totalLeads },
+    { count: newLeadsToday },
+    { count: hotLeads },
   ] = await Promise.all([
     callsQuery()
       .gte('created_at', todayStart)
@@ -47,6 +49,10 @@ export async function Analytics({ clientId }: AnalyticsProps) {
       .not('duration_seconds', 'is', null),
     leadsQuery().eq('status', 'booked'),
     leadsQuery(),
+    leadsQuery().gte('created_at', todayStart),
+    leadsQuery()
+      .in('urgency', ['high', 'urgent'])
+      .in('status', ['new', 'contacted']),
   ])
 
   const avgDuration =
@@ -63,11 +69,13 @@ export async function Analytics({ clientId }: AnalyticsProps) {
     totalLeads ? Math.round(((bookedLeads ?? 0) / totalLeads) * 100) : 0
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
       <StatCard label="Calls Today" value={callsToday ?? 0} />
       <StatCard label="Leads This Week" value={leadsThisWeek ?? 0} />
       <StatCard label="Avg Call Duration" value={formatDuration(avgDuration)} />
       <StatCard label="Booking Rate" value={`${conversionRate}%`} />
+      <StatCard label="New Leads Today" value={newLeadsToday ?? 0} />
+      <StatCard label="Hot Leads" value={hotLeads ?? 0} highlight={!!hotLeads} />
     </div>
   )
 }
@@ -79,11 +87,31 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: string | number
+  highlight?: boolean
+}) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div
+      className={`rounded-lg border p-4 ${
+        highlight
+          ? 'border-red-200 bg-red-50'
+          : 'border-gray-200 bg-white'
+      }`}
+    >
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+      <p
+        className={`text-2xl font-bold mt-1 ${
+          highlight ? 'text-red-700' : 'text-gray-900'
+        }`}
+      >
+        {value}
+      </p>
     </div>
   )
 }
