@@ -17,13 +17,12 @@
 7. [Database Schema (Supabase)](#7-database-schema-supabase)
 8. [Retell AI Integration](#8-retell-ai-integration)
 9. [Owner Notification System](#9-owner-notification-system)
-10. [Client Website System](#10-client-website-system)
-11. [Command Center Dashboard](#11-command-center-dashboard)
-12. [Knowledge Base System](#12-knowledge-base-system)
-13. [Authentication & Multi-Tenancy](#13-authentication--multi-tenancy)
-14. [Deployment & Infrastructure](#14-deployment--infrastructure)
-15. [Business Model & Pricing](#15-business-model--pricing)
-16. [MVP Launch Checklist](#16-mvp-launch-checklist)
+10. [Command Center Dashboard](#10-command-center-dashboard)
+11. [Knowledge Base System](#11-knowledge-base-system)
+12. [Authentication & Multi-Tenancy](#12-authentication--multi-tenancy)
+13. [Deployment & Infrastructure](#13-deployment--infrastructure)
+14. [Business Model & Pricing](#14-business-model--pricing)
+15. [MVP Launch Checklist](#15-mvp-launch-checklist)
 
 ---
 
@@ -36,7 +35,6 @@ An AI phone receptionist service sold B2B to small businesses. Each client gets:
 - A dedicated phone number answered by a custom AI agent
 - An AI trained on their specific business (services, pricing, hours, FAQs, tone)
 - Real-time text/call updates to the business owner
-- A client-facing website (provided as part of the package)
 - A management dashboard
 
 ### How It Works (User Flow)
@@ -46,14 +44,13 @@ An AI phone receptionist service sold B2B to small businesses. Each client gets:
 3. **AI notifies the owner** → Texts the owner with lead details, missed call summaries, daily reports
 4. **Owner can respond** → Text back commands like "call them back" or "offer 10% off"
 5. **Data flows to dashboard** → All calls, leads, and metrics visible in the Command Center
-6. **Website stays updated** → Business info synced to the client's website
 
 ### What Makes This Different
 
-- Full-stack offering: phone agent + owner communication + website — not just a phone answerer
+- Full-stack offering: phone agent + owner communication + dashboard — not just a phone answerer
 - Sales-trained AI with business-specific knowledge, not generic IVR
 - Owner stays in control via simple text commands
-- Website included in the package (most competitors don't touch this)
+- Owner stays in the loop with real-time SMS updates (most competitors don't do this)
 
 ---
 
@@ -63,9 +60,9 @@ An AI phone receptionist service sold B2B to small businesses. Each client gets:
 |-------|-----------|---------|
 | Voice/Telephony | **Retell AI** | Inbound/outbound calls, SMS, voice agent |
 | LLM | **Claude** (via Retell) | AI brain for conversations |
-| Frontend | **Next.js 14+ (App Router)** | Command Center dashboard + client websites |
+| Frontend | **Next.js 14+ (App Router)** | Command Center dashboard |
 | Backend/DB | **Supabase** | Database, auth, real-time subscriptions, edge functions |
-| Deployment | **Vercel** | Hosting for dashboard and client sites |
+| Deployment | **Vercel** | Hosting for dashboard |
 | Owner Notifications | **Twilio SMS** (or Retell native SMS) | Text updates to business owners |
 | Scheduling | **Cal.com** (optional) | Appointment booking integration |
 | Payments | **Stripe** | Subscription billing for clients |
@@ -112,18 +109,6 @@ ai-receptionist/
 │   │   │   └── knowledge/      # Knowledge base helpers
 │   │   └── types/
 │   │
-│   └── client-site/            # Client website template (Next.js)
-│       ├── app/
-│       │   ├── page.tsx        # Homepage
-│       │   ├── services/       # Services page
-│       │   ├── about/          # About page
-│       │   ├── contact/        # Contact page
-│       │   └── api/
-│       │       └── revalidate/ # Webhook to refresh content
-│       ├── components/
-│       └── lib/
-│           └── supabase/       # Pulls content from client's data
-│
 ├── packages/
 │   └── shared/                 # Shared types, utils, constants
 │
@@ -138,7 +123,7 @@ ai-receptionist/
     └── instructions.md         # This file
 ```
 
-**Note:** If monorepo feels heavy for MVP, start with a single Next.js app for the dashboard and add the client-site template later. Ship fast.
+**Note:** Currently running as a single Next.js app for the dashboard. Ship fast.
 
 ---
 
@@ -152,7 +137,6 @@ ai-receptionist/
 4. **Lead capture** — Extract caller info, intent, and urgency from calls
 5. **Command Center dashboard** — View calls, leads, and manage knowledge base
 6. **Knowledge base editor** — Add/edit business info the AI uses
-7. **Client website** — Basic website pulling from Supabase data
 
 ### MVP Build Order
 
@@ -187,15 +171,7 @@ ai-receptionist/
 - [ ] Basic analytics — calls today, leads this week, avg call duration
 - [ ] Client management — add/edit client businesses
 
-#### Step 5: Client Website (Day 13-15)
-- [ ] Create Next.js template for client sites
-- [ ] Pull business data from Supabase (name, services, hours, contact)
-- [ ] Dynamic routing: `[client-slug].yourdomain.com` or custom domain
-- [ ] Basic pages: Home, Services, About, Contact
-- [ ] "Call Now" button that routes to the AI phone number
-- [ ] Deploy template to Vercel
-
-#### Step 6: Testing with Interstate Tires (Day 16-20)
+#### Step 5: Testing with Interstate Tires (Day 13-20)
 - [ ] Load Interstate Tires knowledge base (services, pricing, hours, common questions)
 - [ ] Configure AI agent personality and tone
 - [ ] Test 20+ real calls with various scenarios
@@ -220,12 +196,6 @@ Build these AFTER MVP is stable and Interstate Tires is happy:
 - Objection handling scripts
 - Upsell triggers (e.g., "oil change" → "we have a bundle deal with tire rotation")
 - Urgency creation ("we only have 2 appointment slots left today")
-
-### Website Auto-Updates
-- Owner tells AI about changes → website updates automatically
-- Hours changes, new services, price updates, holiday closures
-- Announcement banner system
-- Blog/news section auto-populated from call insights
 
 ### Client Self-Service Dashboard
 - Client can log in and see their own calls/leads/analytics
@@ -647,81 +617,7 @@ export async function POST(req: Request) {
 
 ---
 
-## 10. Client Website System
-
-### Architecture
-
-Each client gets a website built from a shared Next.js template. Content is pulled dynamically from the `website_content` and `clients` tables in Supabase.
-
-### Approach Options (Choose One)
-
-**Option A: Subdomain routing (Simpler for MVP)**
-- `interstate-tires.yourplatform.com`
-- Single Vercel deployment with dynamic `[slug]` routing
-- Easier to manage, no DNS per client
-
-**Option B: Custom domains (Professional, Phase 2)**
-- `interstatetires.com`
-- Vercel custom domains API
-- Better for client branding
-
-**Recommended: Start with Option A, add Option B later.**
-
-### Website Content Structure
-
-```typescript
-// website_content.content JSONB examples:
-
-// Hero section
-{
-  "headline": "Chattanooga's Trusted Tire Experts",
-  "subheadline": "Fast, affordable tire service since 1995",
-  "cta_text": "Call Now",
-  "cta_phone": "+14235551234",
-  "background_image": "/images/hero.jpg"
-}
-
-// Services section
-{
-  "services": [
-    {
-      "name": "Tire Installation",
-      "description": "Professional mounting and balancing for all vehicle types",
-      "price_range": "$25-$40 per tire",
-      "icon": "wrench"
-    },
-    // ...
-  ]
-}
-
-// Hours section
-{
-  "hours": {
-    "monday": "8:00 AM - 5:00 PM",
-    "tuesday": "8:00 AM - 5:00 PM",
-    // ...
-    "sunday": "Closed"
-  },
-  "note": "Walk-ins welcome, appointments recommended"
-}
-```
-
-### Website Revalidation
-
-When knowledge base or website content is updated, trigger a revalidation:
-
-```typescript
-// After updating website_content or knowledge_base
-await fetch(`https://${client.slug}.yourplatform.com/api/revalidate`, {
-  method: 'POST',
-  headers: { 'x-revalidate-secret': process.env.REVALIDATE_SECRET },
-  body: JSON.stringify({ paths: ['/'] })
-});
-```
-
----
-
-## 11. Command Center Dashboard
+## 10. Command Center Dashboard
 
 ### Pages & Features
 
@@ -780,7 +676,7 @@ await fetch(`https://${client.slug}.yourplatform.com/api/revalidate`, {
 
 ---
 
-## 12. Knowledge Base System
+## 11. Knowledge Base System
 
 ### How It Works
 
@@ -818,7 +714,7 @@ Retell + Claude has a context limit. The knowledge base needs to fit within this
 
 ---
 
-## 13. Authentication & Multi-Tenancy
+## 12. Authentication & Multi-Tenancy
 
 ### Auth Flow
 
@@ -832,19 +728,18 @@ Retell + Claude has a context limit. The knowledge base needs to fit within this
 Everything is scoped by `client_id`. The `clients` table is the central reference point:
 
 ```
-organizations → clients → [calls, leads, knowledge_base, website_content, agent_config, notifications]
+organizations → clients → [calls, leads, knowledge_base, agent_config, notifications]
 ```
 
 RLS policies enforce that users can only see data for clients in their organization.
 
 ---
 
-## 14. Deployment & Infrastructure
+## 13. Deployment & Infrastructure
 
 ### Vercel Setup
 
 - **Dashboard app** — Deployed as main project (`dashboard.yourplatform.com`)
-- **Client sites** — Deployed as separate project with wildcard domain (`*.yourplatform.com`)
 - **Environment variables:**
   - `RETELL_API_KEY`
   - `SUPABASE_URL`
@@ -867,12 +762,10 @@ RLS policies enforce that users can only see data for clients in their organizat
 
 - `yourplatform.com` — Marketing site
 - `app.yourplatform.com` — Command Center dashboard
-- `[client].yourplatform.com` — Client websites
-- Or custom domains per client (Phase 2)
 
 ---
 
-## 15. Business Model & Pricing
+## 14. Business Model & Pricing
 
 ### Your Costs Per Client (Estimated)
 
@@ -889,7 +782,7 @@ RLS policies enforce that users can only see data for clients in their organizat
 
 | Tier | Price/mo | Includes |
 |------|---------|----------|
-| **Starter** | $299/mo | Inbound answering, 500 mins, owner texts, basic website |
+| **Starter** | $299/mo | Inbound answering, 500 mins, owner texts |
 | **Professional** | $499/mo | + Outbound follow-ups, 1000 mins, sales playbook, advanced analytics |
 | **Enterprise** | $799/mo | + Custom integrations, unlimited mins, priority support, custom domain |
 
@@ -900,12 +793,11 @@ RLS policies enforce that users can only see data for clients in their organizat
 Consider a one-time $500 setup fee to cover:
 - Knowledge base creation
 - Agent personality tuning
-- Website setup
 - Initial testing and optimization
 
 ---
 
-## 16. MVP Launch Checklist
+## 15. MVP Launch Checklist
 
 ### Before First Real Call
 
@@ -927,7 +819,6 @@ Consider a one-time $500 setup fee to cover:
 - [ ] Multi-tenant architecture working (new client doesn't affect existing)
 - [ ] Client onboarding workflow documented
 - [ ] Knowledge base template/wizard for fast setup
-- [ ] Client website template polished
 - [ ] Billing integration (Stripe) working
 - [ ] Daily summary notifications tested
 - [ ] Owner reply parsing working reliably
@@ -945,7 +836,6 @@ Consider a one-time $500 setup fee to cover:
 | `POST /api/retell/update-agent` | Updates Retell agent with new knowledge base |
 | `POST /api/notifications/send` | Triggers owner notification |
 | `GET /api/cron/daily-summary` | Generates and sends daily summary (cron) |
-| `POST /api/revalidate` | Revalidates client website content |
 | `GET /api/clients/[id]/knowledge` | Fetches knowledge base for agent prompt |
 
 ---
