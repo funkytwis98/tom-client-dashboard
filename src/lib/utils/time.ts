@@ -1,4 +1,4 @@
-import type { BusinessHours } from '@/types/domain'
+import type { BusinessHours, DayHours } from '@/types/domain'
 
 /**
  * Checks whether a given timestamp falls outside the client's business hours.
@@ -16,6 +16,11 @@ export function isAfterHours(
   if (!businessHours) return false
 
   const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+  // Map full day names to short keys (DB may store either format)
+  const fullToShort: Record<string, string> = {
+    sunday: 'sun', monday: 'mon', tuesday: 'tue', wednesday: 'wed',
+    thursday: 'thu', friday: 'fri', saturday: 'sat',
+  }
   type DayKey = (typeof dayNames)[number]
 
   const date = new Date(timestampMs)
@@ -36,8 +41,11 @@ export function isAfterHours(
   const dayKey = dayNames.find((d) => d === weekdayPart.substring(0, 3)) as DayKey | undefined
   if (!dayKey) return false
 
-  const hours = businessHours[dayKey]
-  if (!hours || hours.closed) return true
+  // Support both short keys ("mon") and full keys ("monday") in businessHours
+  const bh = businessHours as Record<string, DayHours | null | undefined>
+  const fullKey = Object.entries(fullToShort).find(([, v]) => v === dayKey)?.[0]
+  const hours = bh[dayKey] ?? (fullKey ? bh[fullKey] : undefined)
+  if (!hours || hours.closed || !hours.open || !hours.close) return true
 
   // Handle '24:00' style from formatToParts (midnight)
   const currentHour = parseInt(hourStr, 10) % 24

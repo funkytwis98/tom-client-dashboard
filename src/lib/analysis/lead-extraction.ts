@@ -69,7 +69,11 @@ export async function analyzeCallTranscript(transcript: string): Promise<LeadAna
     ],
   })
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : ''
+  let text = message.content[0].type === 'text' ? message.content[0].text : ''
+
+  // Claude sometimes wraps JSON in markdown code fences — strip them
+  text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
+
   const parsed = JSON.parse(text) as LeadAnalysis
 
   // Clamp and validate lead_score — always an integer 1-10

@@ -127,7 +127,9 @@ async function handleCallEnded(
   const isShortCall = call.duration_ms < 10000
 
   let status: 'completed' | 'voicemail' | 'missed'
-  if (afterHours || isShortCall) {
+  if (isShortCall) {
+    status = 'missed'
+  } else if (afterHours) {
     status = 'voicemail'
   } else {
     status = 'completed'
@@ -190,7 +192,14 @@ async function handleCallEnded(
   } catch (err) {
     // Non-fatal — call is already logged, analysis is best-effort
     console.error("[retell-webhook] Lead extraction failed:", String(err))
-      await supabase.from("calls").update({ call_metadata: { lead_extraction_error: String(err) } }).eq("retell_call_id", call.call_id)
+    // Merge error into existing metadata instead of replacing it
+    const { data: existing } = await supabase
+      .from('calls')
+      .select('call_metadata')
+      .eq('retell_call_id', call.call_id)
+      .single()
+    const merged = { ...(existing?.call_metadata as Record<string, unknown> ?? {}), lead_extraction_error: String(err) }
+    await supabase.from('calls').update({ call_metadata: merged }).eq('retell_call_id', call.call_id)
   }
 
   // Notify business owner via SMS
@@ -234,6 +243,13 @@ async function handleCallAnalyzed(
 
   if (!analysis) return
 
+  // Check what Claude's analysis already set — don't overwrite it
+  const { data: existingCall } = await supabase
+    .from('calls')
+    .select('summary, sentiment')
+    .eq('retell_call_id', call.call_id)
+    .single()
+
   // Map Retell sentiment to our schema
   type Sentiment = 'positive' | 'neutral' | 'negative'
   const sentimentMap: Record<string, Sentiment> = {
@@ -244,14 +260,21 @@ async function handleCallAnalyzed(
   }
   const sentiment: Sentiment = sentimentMap[analysis.user_sentiment ?? 'Unknown'] ?? 'neutral'
 
-  const updates: Record<string, unknown> = {
-    summary: analysis.call_summary ?? null,
-    sentiment,
+  // Only fill in fields that Claude's analysis didn't already populate
+  const updates: Record<string, unknown> = {}
+
+  if (!existingCall?.summary) {
+    updates.summary = analysis.call_summary ?? null
+  }
+  if (!existingCall?.sentiment) {
+    updates.sentiment = sentiment
   }
 
   if (analysis.in_voicemail === true) {
     updates.status = 'voicemail'
   }
 
-  await supabase.from('calls').update(updates).eq('retell_call_id', call.call_id)
+  if (Object.keys(updates).length > 0) {
+    await supabase.from('calls').update(updates).eq('retell_call_id', call.call_id)
+  }
 }
