@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getClient } from '@/app/actions/clients'
 import { EditClientForm } from '@/components/dashboard/EditClientForm'
+import { Analytics } from '@/components/dashboard/Analytics'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -58,6 +59,10 @@ export default async function ClientDetailPage({ params }: Props) {
             )
           })}
         </nav>
+      </div>
+
+      <div className="mb-8">
+        <Analytics clientId={id} />
       </div>
 
       <EditClientForm client={client} />
