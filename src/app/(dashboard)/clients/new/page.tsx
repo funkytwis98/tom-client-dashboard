@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { NewClientForm } from '@/components/dashboard/NewClientForm'
+import { OnboardingWizard } from '@/components/dashboard/OnboardingWizard'
 
 export default function NewClientPage() {
   return (
@@ -9,18 +9,18 @@ export default function NewClientPage() {
           Clients
         </Link>
         <span>/</span>
-        <span className="text-gray-900 font-medium">Add Client</span>
+        <span className="text-gray-900 font-medium">Onboard New Client</span>
       </nav>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add Client</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Onboard New Client</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Set up a new AI receptionist client
+          Set up a new AI receptionist in 4 steps
         </p>
       </div>
 
-      <div className="max-w-2xl">
-        <NewClientForm />
+      <div className="max-w-3xl">
+        <OnboardingWizard />
       </div>
     </div>
   )

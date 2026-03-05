@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import type { Client } from '@/types/domain'
+import { createRetellAgent } from '@/lib/retell/agent-builder'
 
 const NewClientSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(200),
@@ -141,4 +142,136 @@ export async function updateClient(formData: UpdateClientInput) {
   revalidatePath('/clients')
   revalidatePath(`/clients/${parsed.id}`)
   return { success: true }
+}
+
+// --- Onboarding Wizard ---
+
+const OnboardSchema = z.object({
+  // Step 1: Business Details
+  name: z.string().min(1, 'Business name is required').max(200),
+  slug: z
+    .string()
+    .min(1, 'Slug is required')
+    .max(100)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase letters, numbers, and hyphens'),
+  owner_name: z.string().min(1, 'Owner name is required').max(200),
+  owner_phone: z.string().min(1, 'Owner phone is required').max(30),
+  owner_email: z.string().email().max(200).optional().or(z.literal('')),
+  timezone: z.string().default('America/New_York'),
+  subscription_tier: z.enum(['standard', 'premium', 'enterprise']).default('standard'),
+  // Step 2: AI Receptionist
+  agent_name: z.string().min(1).max(100).default('receptionist'),
+  voice_id: z.string().min(1, 'Voice is required'),
+  greeting: z.string().max(500).optional().or(z.literal('')),
+  personality: z.string().max(1000).optional().or(z.literal('')),
+  sales_style: z.string().max(1000).optional().or(z.literal('')),
+  escalation_rules: z.string().max(1000).optional().or(z.literal('')),
+  // Step 3: Knowledge Base
+  kb_services: z.string().max(5000).optional().or(z.literal('')),
+  kb_hours: z.string().max(2000).optional().or(z.literal('')),
+  kb_faq: z.string().max(5000).optional().or(z.literal('')),
+  // Step 4: Phone
+  area_code: z.string().regex(/^\d{3}$/, 'Must be a 3-digit area code').optional().or(z.literal('')),
+})
+
+export type OnboardInput = z.infer<typeof OnboardSchema>
+
+export async function onboardClient(
+  formData: OnboardInput,
+): Promise<{ success: true; clientId: string } | { success: false; clientId?: string; error: string }> {
+  const parsed = OnboardSchema.parse(formData)
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
+
+  const { data: org, error: orgError } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
+
+  if (orgError || !org) return { success: false, error: 'Organization not found' }
+
+  // 1. Insert client
+  const { data: client, error: clientError } = await supabase
+    .from('clients')
+    .insert({
+      org_id: org.id,
+      name: parsed.name,
+      slug: parsed.slug,
+      owner_name: parsed.owner_name,
+      owner_phone: parsed.owner_phone,
+      owner_email: parsed.owner_email || null,
+      timezone: parsed.timezone,
+      subscription_tier: parsed.subscription_tier,
+    })
+    .select('id')
+    .single()
+
+  if (clientError || !client) return { success: false, error: clientError?.message ?? 'Failed to create client' }
+
+  const clientId = client.id
+
+  // 2. Upsert agent_config
+  const { error: agentError } = await supabase.from('agent_config').insert({
+    client_id: clientId,
+    agent_name: parsed.agent_name || 'receptionist',
+    greeting: parsed.greeting || `Thanks for calling ${parsed.name}, how can I help you?`,
+    personality: parsed.personality || 'friendly, professional, and helpful',
+    sales_style: parsed.sales_style || 'consultative — ask good questions, understand the need, suggest solutions',
+    escalation_rules: parsed.escalation_rules || null,
+    voice_id: parsed.voice_id,
+  })
+
+  if (agentError) {
+    console.error('[onboard] agent_config insert failed:', agentError)
+    return { success: false, clientId, error: 'Failed to save agent config. You can configure it from the client page.' }
+  }
+
+  // 3. Insert knowledge base entries
+  const kbEntries: Array<{ client_id: string; category: string; title: string; content: string; priority: number }> = []
+  if (parsed.kb_services?.trim()) {
+    kbEntries.push({ client_id: clientId, category: 'services', title: 'Services & Pricing', content: parsed.kb_services.trim(), priority: 10 })
+  }
+  if (parsed.kb_hours?.trim()) {
+    kbEntries.push({ client_id: clientId, category: 'hours', title: 'Business Hours', content: parsed.kb_hours.trim(), priority: 9 })
+  }
+  if (parsed.kb_faq?.trim()) {
+    kbEntries.push({ client_id: clientId, category: 'faq', title: 'Frequently Asked Questions', content: parsed.kb_faq.trim(), priority: 8 })
+  }
+
+  if (kbEntries.length > 0) {
+    const { error: kbError } = await supabase.from('knowledge_base').insert(kbEntries)
+    if (kbError) {
+      console.error('[onboard] knowledge_base insert failed:', kbError)
+    }
+  }
+
+  // 4. Create Retell agent + phone number
+  let retellError: string | null = null
+  try {
+    await createRetellAgent(
+      clientId,
+      parsed.voice_id,
+      parsed.area_code ? parseInt(parsed.area_code, 10) : undefined,
+    )
+  } catch (err) {
+    console.error('[onboard] Retell setup failed:', err)
+    retellError = err instanceof Error ? err.message : 'Retell agent setup failed'
+  }
+
+  revalidatePath('/clients')
+
+  if (retellError) {
+    return {
+      success: false,
+      clientId,
+      error: `Client created but Retell setup failed: ${retellError}. You can retry from the agent config page.`,
+    }
+  }
+
+  return { success: true, clientId }
 }

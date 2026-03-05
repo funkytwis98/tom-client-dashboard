@@ -117,6 +117,54 @@ export async function buildAgentPrompt(clientId: string): Promise<string> {
   return sections.filter((s) => s !== null && s !== undefined).join('\n').trim()
 }
 
+/**
+ * Create a new Retell LLM + Agent + Phone Number for a freshly onboarded client.
+ * Expects the client, agent_config, and knowledge_base rows to already exist in DB.
+ * Updates the client record with the resulting retell_agent_id and phone_number.
+ */
+export async function createRetellAgent(
+  clientId: string,
+  voiceId: string,
+  areaCode?: number,
+): Promise<{ agentId: string; phoneNumber: string }> {
+  const supabase = createServiceClient()
+
+  // 1. Build system prompt from existing DB data
+  const systemPrompt = await buildAgentPrompt(clientId)
+
+  // 2. Create Retell LLM with the prompt
+  const llm = await retellClient.llm.create({
+    model: 'claude-4.5-haiku',
+    general_prompt: systemPrompt,
+  })
+
+  // 3. Create Retell Agent bound to the LLM
+  const agent = await retellClient.agent.create({
+    response_engine: { type: 'retell-llm', llm_id: llm.llm_id },
+    voice_id: voiceId,
+    agent_name: `client-${clientId}`,
+  })
+
+  // 4. Purchase phone number and bind to agent
+  const phone = await retellClient.phoneNumber.create({
+    ...(areaCode ? { area_code: areaCode } : {}),
+    inbound_agents: [{ agent_id: agent.agent_id, weight: 1 }],
+    nickname: `client-${clientId}`,
+  })
+
+  // 5. Update client record with Retell IDs
+  await supabase
+    .from('clients')
+    .update({
+      retell_agent_id: agent.agent_id,
+      phone_number: phone.phone_number,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', clientId)
+
+  return { agentId: agent.agent_id, phoneNumber: phone.phone_number }
+}
+
 function formatBusinessHours(hours: BusinessHours): string {
   const days: Array<[keyof BusinessHours, string]> = [
     ['mon', 'Monday'],
