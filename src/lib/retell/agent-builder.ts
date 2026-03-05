@@ -97,6 +97,15 @@ export async function buildAgentPrompt(clientId: string): Promise<string> {
     '## Escalation Rules',
     escalation,
     '',
+    ...(config.voicemail_message
+      ? [
+          '## After-Hours Behavior',
+          `If a caller reaches you outside business hours, follow this script:`,
+          `"${config.voicemail_message}"`,
+          `After delivering this message, still try to capture the caller's name, phone number, and what they need.`,
+          '',
+        ]
+      : []),
     '## Core Rules',
     `- Always be helpful, warm, and professional`,
     `- If you don't know something, say "Let me have ${client.owner_name ?? 'someone from our team'} get back to you on that"`,

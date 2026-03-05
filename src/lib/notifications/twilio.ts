@@ -2,6 +2,7 @@ import twilio from 'twilio'
 import { env } from '@/lib/utils/env'
 import { formatNewLeadSMS, formatUrgentLeadSMS, formatMissedCallSMS, formatDailySummarySMS } from './templates'
 import type { NotificationPayload } from '@/types/api'
+import type { ClientSettings } from '@/types/domain'
 import { reportError } from '@/lib/monitoring/report-error'
 import type { createServiceClient } from '@/lib/supabase/service'
 
@@ -92,6 +93,59 @@ export async function sendOwnerSMS(
   } catch (err) {
     console.error('[sendOwnerSMS] Failed to log notification to DB:', err)
   }
+}
+
+/**
+ * Checks notification settings to decide whether an SMS should be sent.
+ * Respects notifications_paused, notification_threshold, and quiet hours.
+ * Urgent notifications always bypass threshold and quiet hours.
+ */
+export function shouldSendNotification(
+  settings: ClientSettings,
+  timezone: string,
+  payload: NotificationPayload,
+): boolean {
+  // Paused → suppress everything
+  if (settings.notifications_paused) return false
+
+  // Urgent always sends (bypasses threshold + quiet hours)
+  if (payload.type === 'urgent') return true
+
+  // Check lead score against threshold (default 5)
+  const threshold = settings.notification_threshold ?? 5
+  if (payload.lead_score !== undefined && payload.lead_score < threshold) {
+    return false
+  }
+
+  // Check quiet hours
+  if (settings.quiet_hours_start && settings.quiet_hours_end) {
+    const now = new Date()
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    const parts = formatter.formatToParts(now)
+    const h = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10) % 24
+    const m = parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10)
+    const current = h * 60 + m
+
+    const [startH, startM] = settings.quiet_hours_start.split(':').map(Number)
+    const [endH, endM] = settings.quiet_hours_end.split(':').map(Number)
+    const start = startH * 60 + startM
+    const end = endH * 60 + endM
+
+    // Quiet hours can span midnight (e.g. 22:00 → 07:00)
+    const inQuiet =
+      start <= end
+        ? current >= start && current < end
+        : current >= start || current < end
+
+    if (inQuiet) return false
+  }
+
+  return true
 }
 
 // Re-export for use in daily summary cron handler

@@ -4,10 +4,11 @@ import { getClientByAgentId } from '@/lib/retell/client'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAfterHours } from '@/lib/utils/time'
 import { analyzeCallTranscript } from '@/lib/analysis/lead-extraction'
-import { sendOwnerSMS } from '@/lib/notifications/twilio'
+import { sendOwnerSMS, shouldSendNotification } from '@/lib/notifications/twilio'
 import type { RetellWebhookEvent } from '@/types/retell'
 import { reportError } from '@/lib/monitoring/report-error'
 import type { NotificationPayload } from '@/types/api'
+import type { ClientSettings } from '@/types/domain'
 import { rateLimit, rateLimitResponse } from '@/lib/middleware/rate-limit'
 
 // ---------------------------------------------------------------------------
@@ -215,7 +216,7 @@ async function handleCallEnded(
     await supabase.from('calls').update({ call_metadata: merged }).eq('retell_call_id', call.call_id)
   }
 
-  // Notify business owner via SMS
+  // Notify business owner via SMS (respects notification settings)
   if (client.owner_phone) {
     try {
       const isUrgent = callAnalysis && callAnalysis.lead_score >= 9
@@ -234,11 +235,14 @@ async function handleCallEnded(
         service: callAnalysis?.service_interested ?? undefined,
       }
 
-      await sendOwnerSMS(payload, supabase)
+      const settings = (client.settings ?? {}) as ClientSettings
+      if (shouldSendNotification(settings, client.timezone, payload)) {
+        await sendOwnerSMS(payload, supabase)
 
-      // Mark lead as owner_notified
-      if (leadId) {
-        await supabase.from('leads').update({ owner_notified: true }).eq('id', leadId)
+        // Mark lead as owner_notified
+        if (leadId) {
+          await supabase.from('leads').update({ owner_notified: true }).eq('id', leadId)
+        }
       }
     } catch (err) {
       // Non-fatal — call is already logged, notification is best-effort

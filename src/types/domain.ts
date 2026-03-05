@@ -53,7 +53,8 @@ export interface Address {
 }
 
 export interface ClientSettings {
-  notification_threshold?: number  // min lead_score to trigger SMS (default 7)
+  notifications_paused?: boolean   // true = suppress all SMS notifications
+  notification_threshold?: number  // min lead_score to trigger SMS (default 5)
   quiet_hours_start?: string       // "18:00" — no non-urgent SMS after this
   quiet_hours_end?: string         // "07:00"
   daily_summary_time?: string      // "17:00" — when to send daily summary
