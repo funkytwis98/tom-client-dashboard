@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getClient } from '@/app/actions/clients'
 import { EditClientForm } from '@/components/dashboard/EditClientForm'
+import { InviteOwnerButton } from '@/components/dashboard/InviteOwnerButton'
 import { Analytics } from '@/components/dashboard/Analytics'
 import { CallVolumeChart } from '@/components/dashboard/CallVolumeChart'
 import { createClient } from '@/lib/supabase/server'
@@ -14,8 +15,10 @@ const TABS = [
   { label: 'Details', href: '' },
   { label: 'Calls', href: '/calls' },
   { label: 'Leads', href: '/leads' },
+  { label: 'Customers', href: '/customers' },
   { label: 'Knowledge', href: '/knowledge' },
   { label: 'Agent', href: '/agent' },
+  { label: 'Playbook', href: '/playbook' },
 ]
 
 async function getCallVolumeData(clientId: string) {
@@ -99,6 +102,10 @@ export default async function ClientDetailPage({ params }: Props) {
 
       <div className="mb-8">
         <CallVolumeChart data={chartData} />
+      </div>
+
+      <div className="mb-6">
+        <InviteOwnerButton clientId={id} ownerEmail={client.owner_email} />
       </div>
 
       <EditClientForm client={client} />

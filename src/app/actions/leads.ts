@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import type { Lead } from '@/types/domain'
+import { autoConvertLeadToCustomer } from './customers'
 
 export async function updateLeadStatus(
   leadId: string,
@@ -17,7 +18,15 @@ export async function updateLeadStatus(
 
   if (error) throw new Error(error.message)
 
+  // Auto-convert to customer when booked or completed
+  if (status === 'booked' || status === 'completed') {
+    autoConvertLeadToCustomer(leadId, clientId).catch((err) => {
+      console.error('[updateLeadStatus] Auto-convert failed:', err)
+    })
+  }
+
   revalidatePath(`/clients/${clientId}/leads`)
+  revalidatePath(`/clients/${clientId}/customers`)
   return { success: true }
 }
 

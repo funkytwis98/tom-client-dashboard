@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { retellClient } from './client'
-import type { AgentConfig, KnowledgeEntry, BusinessHours } from '@/types/domain'
+import type { AgentConfig, KnowledgeEntry, BusinessHours, SalesPlaybook } from '@/types/domain'
 
 // Category display order in prompt — most business-critical info first
 const CATEGORY_ORDER = [
@@ -22,10 +22,16 @@ const CATEGORY_ORDER = [
 export async function buildAgentPrompt(clientId: string): Promise<string> {
   const supabase = createServiceClient()
 
-  const [{ data: client }, { data: knowledge }] = await Promise.all([
+  const [{ data: client }, { data: knowledge }, { data: playbooks }] = await Promise.all([
     supabase.from('clients').select('*, agent_config(*)').eq('id', clientId).single(),
     supabase
       .from('knowledge_base')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('priority', { ascending: false }),
+    supabase
+      .from('sales_playbooks')
       .select('*')
       .eq('client_id', clientId)
       .eq('is_active', true)
@@ -94,6 +100,7 @@ export async function buildAgentPrompt(clientId: string): Promise<string> {
     '## Your Sales Approach',
     config.sales_style ?? 'Ask good questions. Understand what the caller needs. Suggest solutions.',
     '',
+    ...formatPlaybookSection((playbooks ?? []) as SalesPlaybook[]),
     '## Escalation Rules',
     escalation,
     '',
@@ -172,6 +179,40 @@ export async function createRetellAgent(
     .eq('id', clientId)
 
   return { agentId: agent.agent_id, phoneNumber: phone.phone_number }
+}
+
+const PLAYBOOK_CATEGORY_LABELS: Record<string, string> = {
+  objection_handling: 'Objection Handling',
+  upsell_trigger: 'Upsell Opportunities',
+  urgency_script: 'Creating Urgency',
+  closing_technique: 'Closing Techniques',
+}
+
+function formatPlaybookSection(playbooks: SalesPlaybook[]): string[] {
+  if (playbooks.length === 0) return []
+
+  const grouped: Record<string, SalesPlaybook[]> = {}
+  for (const p of playbooks) {
+    if (!grouped[p.category]) grouped[p.category] = []
+    grouped[p.category].push(p)
+  }
+
+  const lines: string[] = ['## Sales Playbook']
+
+  for (const [category, entries] of Object.entries(grouped)) {
+    const label = PLAYBOOK_CATEGORY_LABELS[category] ?? category
+    lines.push(`### ${label}`)
+    for (const entry of entries) {
+      if (entry.trigger_phrase) {
+        lines.push(`- When caller says "${entry.trigger_phrase}": ${entry.response_script}`)
+      } else {
+        lines.push(`- ${entry.title}: ${entry.response_script}`)
+      }
+    }
+  }
+
+  lines.push('')
+  return lines
 }
 
 function formatBusinessHours(hours: BusinessHours): string {

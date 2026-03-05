@@ -137,6 +137,61 @@ export interface AgentConfig {
   updated_at: string
 }
 
+export interface Customer {
+  id: string
+  client_id: string
+  name: string
+  phone: string | null
+  email: string | null
+  notes: string | null
+  tags: string[]
+  status: 'active' | 'inactive' | 'vip'
+  source: 'manual' | 'auto_converted'
+  converted_from_lead_id: string | null
+  total_calls: number
+  last_call_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  role: 'admin' | 'client_owner'
+  org_id: string | null
+  client_id: string | null
+  display_name: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ClientInvitation {
+  id: string
+  client_id: string
+  email: string
+  token: string
+  status: 'pending' | 'accepted' | 'expired' | 'revoked'
+  invited_by: string | null
+  expires_at: string
+  accepted_at: string | null
+  created_at: string
+}
+
+export type PlaybookCategory = 'objection_handling' | 'upsell_trigger' | 'urgency_script' | 'closing_technique'
+
+export interface SalesPlaybook {
+  id: string
+  client_id: string
+  category: PlaybookCategory
+  title: string
+  trigger_phrase: string | null
+  response_script: string
+  is_active: boolean
+  priority: number
+  created_at: string
+  updated_at: string
+}
+
 // Joined types for dashboard display
 export interface CallWithLead extends Call {
   lead?: Lead
@@ -144,4 +199,9 @@ export interface CallWithLead extends Call {
 
 export interface LeadWithCall extends Lead {
   call?: Call
+}
+
+export interface CustomerWithCalls extends Customer {
+  calls?: Call[]
+  leads?: Lead[]
 }
