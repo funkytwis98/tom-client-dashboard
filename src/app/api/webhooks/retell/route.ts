@@ -46,7 +46,7 @@ export async function POST(req: Request): Promise<Response> {
   const { data: existing } = await supabase
     .from('webhook_processing_log')
     .select('id')
-    .eq('call_id', callId)
+    .eq('retell_call_id', callId)
     .eq('event_type', eventType)
     .single()
 
@@ -78,7 +78,7 @@ export async function POST(req: Request): Promise<Response> {
 
   // 6. Record successful processing (idempotency guard for future retries)
   await supabase.from('webhook_processing_log').insert({
-    call_id: callId,
+    retell_call_id: callId,
     event_type: eventType,
     processed_at: new Date().toISOString(),
   })
