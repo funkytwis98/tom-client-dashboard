@@ -36,7 +36,7 @@ T.O.M. Agency sells three products to local businesses as a progressive upsell c
 
 | # | Product | Role | Status |
 |---|---------|------|--------|
-| 1 | **Custom Websites** | Entry point — gets the client in the door | Phase 3 (not started) |
+| 1 | **Custom Websites** | Entry point — gets the client in the door | Phase 3 — custom-built via Claude Code, deployed to Cloudflare |
 | 2 | **AI Receptionist** | First upsell — answers their phone 24/7 | **This repo** — MVP nearly done |
 | 3 | **AI Social Media Manager** | Second upsell — manages their social presence | Separate app (Command Center) — already built |
 
@@ -205,15 +205,32 @@ ai-receptionist/
 
 ## 7. Phase 3 — Website Product
 
-**Goal:** Build a fast way to create and deliver custom websites for local businesses. This is the entry point to the T.O.M. Agency sales funnel.
+**Goal:** Deliver custom websites for local businesses as the entry point to the T.O.M. Agency sales funnel.
 
-- Templated website builder for local businesses
-- Fast delivery (spin up a site in hours, not weeks)
-- Integrated with AI Receptionist (click-to-call, chat widget)
-- Custom domains per client
-- CMS for client to edit their own content
+### Approach
 
-*Detailed spec TBD when Phase 2 is complete.*
+Each client website is **custom-built using Claude Code** — not a template system. Sites are individually crafted, deployed to **Cloudflare Pages**, and connected to the AI Receptionist via the existing **public API** (`GET /api/public/client/[slug]`).
+
+### How It Works
+
+1. **Build:** Use Claude Code to create a custom static site per client (HTML/CSS/JS or lightweight framework)
+2. **Deploy:** Push to Cloudflare Pages with a custom domain per client
+3. **Connect:** Site fetches business data (hours, services, phone) from the AI Receptionist public API
+4. **Integrate:** Click-to-call buttons link to the client's Retell phone number
+
+### Why This Approach
+
+- Each site is unique — not cookie-cutter templates that look like every other local business
+- Cloudflare Pages = free hosting, global CDN, custom domains, zero ongoing cost
+- Public API already exists — sites pull live business data without duplication
+- No template system to maintain in this repo — websites are separate repos/projects
+- Claude Code can build a custom site in minutes, not hours
+
+### What Lives in This Repo
+
+- `GET /api/public/client/[slug]` — public endpoint that serves business data to client websites
+- Knowledge base data that websites can pull from (services, hours, address, etc.)
+- Nothing else — client websites are separate projects deployed to Cloudflare
 
 ---
 
