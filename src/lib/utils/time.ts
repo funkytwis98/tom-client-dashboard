@@ -1,4 +1,4 @@
-import type { BusinessHours, DayHours } from '@/types/domain'
+import type { BusinessHours } from '@/types/domain'
 
 /**
  * Checks whether a given timestamp falls outside the client's business hours.
@@ -15,8 +15,7 @@ export function isAfterHours(
 ): boolean {
   if (!businessHours) return false
 
-  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
-  type DayKey = (typeof dayNames)[number]
+  type DayKey = keyof BusinessHours
 
   const shortToFull: Record<string, DayKey> = {
     sun: 'sunday', mon: 'monday', tue: 'tuesday', wed: 'wednesday',
