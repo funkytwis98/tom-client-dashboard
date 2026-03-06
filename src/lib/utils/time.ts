@@ -15,13 +15,13 @@ export function isAfterHours(
 ): boolean {
   if (!businessHours) return false
 
-  const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
-  // Map full day names to short keys (DB may store either format)
-  const fullToShort: Record<string, string> = {
-    sunday: 'sun', monday: 'mon', tuesday: 'tue', wednesday: 'wed',
-    thursday: 'thu', friday: 'fri', saturday: 'sat',
-  }
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
   type DayKey = (typeof dayNames)[number]
+
+  const shortToFull: Record<string, DayKey> = {
+    sun: 'sunday', mon: 'monday', tue: 'tuesday', wed: 'wednesday',
+    thu: 'thursday', fri: 'friday', sat: 'saturday',
+  }
 
   const date = new Date(timestampMs)
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -37,14 +37,12 @@ export function isAfterHours(
   const hourStr = parts.find((p) => p.type === 'hour')?.value ?? '00'
   const minStr = parts.find((p) => p.type === 'minute')?.value ?? '00'
 
-  // formatToParts weekday: 'short' gives "Mon", "Tue", etc. — take first 3 lowercase chars
-  const dayKey = dayNames.find((d) => d === weekdayPart.substring(0, 3)) as DayKey | undefined
+  // formatToParts weekday: 'short' gives "Mon", "Tue", etc. — map to full name
+  const shortKey = weekdayPart.substring(0, 3)
+  const dayKey = shortToFull[shortKey]
   if (!dayKey) return false
 
-  // Support both short keys ("mon") and full keys ("monday") in businessHours
-  const bh = businessHours as Record<string, DayHours | null | undefined>
-  const fullKey = Object.entries(fullToShort).find(([, v]) => v === dayKey)?.[0]
-  const hours = bh[dayKey] ?? (fullKey ? bh[fullKey] : undefined)
+  const hours = businessHours[dayKey]
   if (!hours || hours.closed || !hours.open || !hours.close) return true
 
   // Handle '24:00' style from formatToParts (midnight)

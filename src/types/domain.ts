@@ -30,18 +30,18 @@ export interface Client {
 }
 
 export interface BusinessHours {
-  mon?: DayHours
-  tue?: DayHours
-  wed?: DayHours
-  thu?: DayHours
-  fri?: DayHours
-  sat?: DayHours
-  sun?: DayHours
+  monday?: DayHours
+  tuesday?: DayHours
+  wednesday?: DayHours
+  thursday?: DayHours
+  friday?: DayHours
+  saturday?: DayHours
+  sunday?: DayHours
 }
 
 export interface DayHours {
-  open: string   // "08:00"
-  close: string  // "17:00"
+  open: string | null   // "08:00"
+  close: string | null  // "17:00"
   closed?: boolean
 }
 

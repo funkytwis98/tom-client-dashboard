@@ -36,7 +36,7 @@ export function BusinessHoursTable({ hours, className = '' }: BusinessHoursTable
             <tr key={day} className="border-b border-gray-100 last:border-0">
               <td className="py-2 font-medium">{DAY_LABELS[day]}</td>
               <td className="py-2 text-right">
-                {!dayHours || dayHours.closed ? (
+                {!dayHours || dayHours.closed || !dayHours.open || !dayHours.close ? (
                   <span className="text-gray-400">Closed</span>
                 ) : (
                   `${formatTime(dayHours.open)} - ${formatTime(dayHours.close)}`

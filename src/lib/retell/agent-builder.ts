@@ -217,18 +217,18 @@ function formatPlaybookSection(playbooks: SalesPlaybook[]): string[] {
 
 function formatBusinessHours(hours: BusinessHours): string {
   const days: Array<[keyof BusinessHours, string]> = [
-    ['mon', 'Monday'],
-    ['tue', 'Tuesday'],
-    ['wed', 'Wednesday'],
-    ['thu', 'Thursday'],
-    ['fri', 'Friday'],
-    ['sat', 'Saturday'],
-    ['sun', 'Sunday'],
+    ['monday', 'Monday'],
+    ['tuesday', 'Tuesday'],
+    ['wednesday', 'Wednesday'],
+    ['thursday', 'Thursday'],
+    ['friday', 'Friday'],
+    ['saturday', 'Saturday'],
+    ['sunday', 'Sunday'],
   ]
 
   const lines = days.map(([key, label]) => {
     const h = hours[key]
-    if (!h || h.closed) return `${label}: Closed`
+    if (!h || h.closed || !h.open || !h.close) return `${label}: Closed`
     return `${label}: ${h.open} - ${h.close}`
   })
 

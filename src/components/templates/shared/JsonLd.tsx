@@ -41,7 +41,7 @@ export function JsonLd({ data }: JsonLdProps) {
     const specs: string[] = []
     for (const [day, abbr] of Object.entries(dayMap)) {
       const hours = client.business_hours[day as keyof typeof client.business_hours]
-      if (hours && !hours.closed) {
+      if (hours && !hours.closed && hours.open && hours.close) {
         specs.push(`${abbr} ${hours.open}-${hours.close}`)
       }
     }

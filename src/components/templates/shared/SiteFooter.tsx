@@ -13,7 +13,7 @@ function getOpenDaysSummary(hours: BusinessHours): string {
   const openDays: string[] = []
   for (const day of dayOrder) {
     const h = hours[day as keyof BusinessHours]
-    if (h && !h.closed) openDays.push(day)
+    if (h && !h.closed && h.open && h.close) openDays.push(day)
   }
   if (openDays.length === 0) return ''
   if (openDays.length === 7) return 'Open 7 Days'
