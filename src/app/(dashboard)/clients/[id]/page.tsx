@@ -20,6 +20,7 @@ const TABS = [
   { label: 'Agent', href: '/agent' },
   { label: 'Playbook', href: '/playbook' },
   { label: 'Website', href: '/website' },
+  { label: 'Billing', href: '/billing' },
 ]
 
 async function getCallVolumeData(clientId: string) {

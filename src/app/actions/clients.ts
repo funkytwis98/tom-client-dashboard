@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import type { Client } from '@/types/domain'
 import { createRetellAgent } from '@/lib/retell/agent-builder'
+import { getStripeClient } from '@/lib/stripe/client'
 
 const NewClientSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(200),
@@ -215,7 +216,25 @@ export async function onboardClient(
 
   const clientId = client.id
 
-  // 2. Upsert agent_config
+  // 2. Create Stripe customer (non-blocking — if it fails, can be added from billing tab)
+  try {
+    const stripe = getStripeClient()
+    const customer = await stripe.customers.create({
+      name: parsed.name,
+      email: parsed.owner_email || undefined,
+      phone: parsed.owner_phone || undefined,
+      metadata: { client_id: clientId, org_id: org.id },
+    })
+    await supabase
+      .from('clients')
+      .update({ stripe_customer_id: customer.id, updated_at: new Date().toISOString() })
+      .eq('id', clientId)
+  } catch (err) {
+    console.error('[onboard] Stripe customer creation failed:', err)
+    // Non-fatal — client is created, Stripe customer can be added later
+  }
+
+  // 3. Upsert agent_config
   const { error: agentError } = await supabase.from('agent_config').insert({
     client_id: clientId,
     agent_name: parsed.agent_name || 'receptionist',
@@ -231,7 +250,7 @@ export async function onboardClient(
     return { success: false, clientId, error: 'Failed to save agent config. You can configure it from the client page.' }
   }
 
-  // 3. Insert knowledge base entries
+  // 4. Insert knowledge base entries
   const kbEntries: Array<{ client_id: string; category: string; title: string; content: string; priority: number }> = []
   if (parsed.kb_services?.trim()) {
     kbEntries.push({ client_id: clientId, category: 'services', title: 'Services & Pricing', content: parsed.kb_services.trim(), priority: 10 })
@@ -250,7 +269,7 @@ export async function onboardClient(
     }
   }
 
-  // 4. Create Retell agent + phone number
+  // 5. Create Retell agent + phone number
   let retellError: string | null = null
   try {
     await createRetellAgent(

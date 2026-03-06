@@ -3,7 +3,7 @@ import { env, isProduction } from '@/lib/utils/env'
 import twilio from 'twilio'
 
 interface ReportErrorOptions {
-  type: 'lead_extraction' | 'owner_sms' | 'retell_sync' | 'twilio_webhook'
+  type: 'lead_extraction' | 'owner_sms' | 'retell_sync' | 'twilio_webhook' | 'stripe_webhook'
   message: string
   detail?: string
   clientId?: string

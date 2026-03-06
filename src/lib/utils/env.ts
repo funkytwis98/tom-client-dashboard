@@ -29,6 +29,13 @@ export const env = {
   // Anthropic (Claude API)
   anthropicApiKey: () => requireEnv('ANTHROPIC_API_KEY'),
 
+  // Stripe
+  stripeSecretKey: () => requireEnv('STRIPE_SECRET_KEY'),
+  stripeWebhookSecret: () => requireEnv('STRIPE_WEBHOOK_SECRET'),
+  stripePriceStandard: () => requireEnv('STRIPE_PRICE_STANDARD'),
+  stripePricePremium: () => requireEnv('STRIPE_PRICE_PREMIUM'),
+  stripePriceEnterprise: () => requireEnv('STRIPE_PRICE_ENTERPRISE'),
+
   // Other
   revalidateSecret: () => requireEnv('REVALIDATE_SECRET'),
   adminAlertPhone: () => optionalEnv('ADMIN_ALERT_PHONE', ''),

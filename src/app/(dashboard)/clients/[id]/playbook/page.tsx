@@ -16,6 +16,8 @@ const TABS = [
   { label: 'Knowledge', href: '/knowledge' },
   { label: 'Agent', href: '/agent' },
   { label: 'Playbook', href: '/playbook' },
+  { label: 'Website', href: '/website' },
+  { label: 'Billing', href: '/billing' },
 ]
 
 export default async function PlaybookPage({ params }: Props) {

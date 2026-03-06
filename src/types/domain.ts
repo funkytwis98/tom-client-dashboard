@@ -25,6 +25,7 @@ export interface Client {
   subscription_tier: 'standard' | 'premium' | 'enterprise'
   subscription_status: 'active' | 'paused' | 'cancelled'
   stripe_customer_id: string | null
+  stripe_subscription_id: string | null
   created_at: string
   updated_at: string
 }
