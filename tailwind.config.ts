@@ -11,6 +11,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        gold: {
+          50: '#FFFDF0',
+          100: '#FFF9D6',
+          200: '#FFF3AD',
+          300: '#FFED85',
+          400: '#FFE55C',
+          500: '#FFD700',
+          600: '#E6C200',
+          700: '#B39600',
+          800: '#806B00',
+          900: '#4D4000',
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
