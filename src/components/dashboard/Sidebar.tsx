@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -93,6 +94,7 @@ interface SidebarProps {
 export default function Sidebar({ role, clientId, userEmail, displayName }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false)
 
   const navItems = role === 'client_owner' && clientId
     ? getClientOwnerNav(clientId)
@@ -108,11 +110,11 @@ export default function Sidebar({ role, clientId, userEmail, displayName }: Side
     router.refresh()
   }
 
-  return (
-    <div className="w-64 bg-gray-900 flex flex-col flex-shrink-0">
+  const sidebarContent = (
+    <>
       {/* Logo / Brand */}
-      <div className="px-6 py-5 border-b border-gray-700">
-        <h1 className="text-white font-semibold text-lg">AI Receptionist</h1>
+      <div className="px-6 py-5 border-b border-gray-800">
+        <h1 className="text-gold-500 font-semibold text-lg">Tom Agency</h1>
         <p className="text-gray-400 text-xs mt-0.5">{subtitle}</p>
       </div>
 
@@ -124,13 +126,14 @@ export default function Sidebar({ role, clientId, userEmail, displayName }: Side
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-gray-700 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-gray-800 text-white border-l-2 border-gold-500'
+                  : 'text-gray-300 hover:bg-gray-900 hover:text-white'
               }`}
             >
-              <span className={isActive ? 'text-white' : 'text-gray-400'}>{item.icon}</span>
+              <span className={isActive ? 'text-gold-500' : 'text-gray-400'}>{item.icon}</span>
               {item.label}
             </Link>
           )
@@ -138,10 +141,10 @@ export default function Sidebar({ role, clientId, userEmail, displayName }: Side
       </nav>
 
       {/* User footer */}
-      <div className="px-3 py-4 border-t border-gray-700">
+      <div className="px-3 py-4 border-t border-gray-800">
         <div className="flex items-center gap-3 px-3 py-2 rounded-md">
-          <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-medium">
+          <div className="w-8 h-8 rounded-full bg-gold-500/20 flex items-center justify-center flex-shrink-0">
+            <span className="text-gold-500 text-xs font-medium">
               {nameDisplay[0].toUpperCase()}
             </span>
           </div>
@@ -162,6 +165,43 @@ export default function Sidebar({ role, clientId, userEmail, displayName }: Side
           Sign out
         </button>
       </div>
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed top-3 left-3 z-50 flex md:hidden items-center justify-center w-11 h-11 rounded-md bg-black text-white shadow-lg"
+        aria-label="Toggle navigation"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-black flex flex-col md:hidden transform transition-transform duration-200 ease-in-out ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {sidebarContent}
+      </div>
+
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex w-64 bg-black flex-col flex-shrink-0">
+        {sidebarContent}
+      </div>
+    </>
   )
 }
