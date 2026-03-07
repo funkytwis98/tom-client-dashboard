@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { getClients } from '@/app/actions/clients'
+import { SettingsKnowledgeBase } from '@/components/dashboard/SettingsKnowledgeBase'
+import type { KnowledgeEntry } from '@/types/domain'
 
 function StatusBadge({ connected }: { connected: boolean }) {
   return (
@@ -16,9 +19,24 @@ function StatusBadge({ connected }: { connected: boolean }) {
 
 export default async function SettingsPage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [{ data: { user } }, clients] = await Promise.all([
+    supabase.auth.getUser(),
+    getClients().catch(() => []),
+  ])
+
+  // Fetch all knowledge base entries across clients
+  const { data: kbEntries } = await supabase
+    .from('knowledge_base')
+    .select('*')
+    .order('priority', { ascending: false })
+
+  // Group KB entries by client_id
+  const kbByClient = new Map<string, KnowledgeEntry[]>()
+  for (const entry of (kbEntries ?? []) as KnowledgeEntry[]) {
+    const list = kbByClient.get(entry.client_id) ?? []
+    list.push(entry)
+    kbByClient.set(entry.client_id, list)
+  }
 
   const retellConfigured = !!process.env.RETELL_API_KEY
   const twilioConfigured =
@@ -28,9 +46,9 @@ export default async function SettingsPage() {
   const stripeConfigured = !!process.env.STRIPE_SECRET_KEY
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+    <div className="p-4 md:p-8">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Settings</h1>
         <p className="text-sm text-gray-500 mt-1">Account and integration settings</p>
       </div>
 
@@ -49,6 +67,16 @@ export default async function SettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* Knowledge Base per client */}
+        {clients.map((client) => (
+          <SettingsKnowledgeBase
+            key={client.id}
+            clientId={client.id}
+            clientName={client.name}
+            initialEntries={kbByClient.get(client.id) ?? []}
+          />
+        ))}
 
         {/* Integrations */}
         <section className="bg-white rounded-lg border border-gray-200 p-6">

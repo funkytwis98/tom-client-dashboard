@@ -32,7 +32,7 @@ function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
     standard: 'bg-blue-100 text-blue-800',
     premium: 'bg-purple-100 text-purple-800',
-    enterprise: 'bg-indigo-100 text-indigo-800',
+    enterprise: 'bg-gray-200 text-gray-800',
   }
   const config = TIERS[tier as keyof typeof TIERS]
   return (
@@ -58,29 +58,29 @@ export default async function BillingOverviewPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
+    <div className="p-4 md:p-8">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Billing</h1>
         <p className="mt-1 text-sm text-gray-500">Subscription overview across all clients</p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-5">
           <p className="text-sm text-gray-500">Monthly Recurring Revenue</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
+          <p className="mt-1 text-lg md:text-2xl font-bold text-gray-900">
             ${totalMRR.toLocaleString()}
           </p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-5">
           <p className="text-sm text-gray-500">Active Clients</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{activeClients.length}</p>
+          <p className="mt-1 text-lg md:text-2xl font-bold text-gray-900">{activeClients.length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-5">
           <p className="text-sm text-gray-500">Total Clients</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{clients.length}</p>
+          <p className="mt-1 text-lg md:text-2xl font-bold text-gray-900">{clients.length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-5">
           <p className="text-sm text-gray-500">Tier Breakdown</p>
           <div className="mt-1 text-sm text-gray-700 space-y-0.5">
             <p>Starter: {tierCounts.standard}</p>
@@ -113,7 +113,7 @@ export default async function BillingOverviewPage() {
               clients.map((client) => (
                 <tr key={client.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <Link href={`/clients/${client.id}`} className="hover:text-indigo-600 transition-colors">
+                    <Link href={`/clients/${client.id}`} className="hover:text-gray-700 transition-colors">
                       {client.name}
                     </Link>
                   </td>
@@ -129,7 +129,7 @@ export default async function BillingOverviewPage() {
                   <td className="px-6 py-4 text-right">
                     <Link
                       href={`/clients/${client.id}/billing`}
-                      className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                      className="text-sm text-gray-900 hover:text-gray-700 font-medium transition-colors"
                     >
                       Manage
                     </Link>

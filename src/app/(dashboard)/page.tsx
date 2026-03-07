@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { Analytics } from '@/components/dashboard/Analytics'
 import { SystemHealth } from '@/components/dashboard/SystemHealth'
+import { HealthOverview } from '@/components/dashboard/HealthOverview'
 import { CallVolumeChart } from '@/components/dashboard/CallVolumeChart'
+import { RealtimeCallAlerts } from '@/components/dashboard/RealtimeCallAlerts'
 import Link from 'next/link'
 import type { Call, Lead } from '@/types/domain'
 
@@ -117,13 +119,19 @@ export default async function DashboardPage() {
   const chartData = await getCallVolumeData(supabase)
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Command Center</h1>
+    <div className="p-4 md:p-8">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Command Center</h1>
         <p className="text-sm text-gray-500 mt-1">
           Monitor your AI receptionist activity
         </p>
       </div>
+
+      {/* Health overview — first thing you see */}
+      <HealthOverview />
+
+      {/* Real-time call/lead alerts */}
+      <RealtimeCallAlerts />
 
       {/* System health — hidden when all clear */}
       <SystemHealth />
@@ -139,10 +147,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* Quick Links */}
-      <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="mb-6 md:mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <Link
           href="/clients"
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-gray-300 hover:bg-gray-50 transition-colors"
         >
           <div>
             <p className="text-sm font-semibold text-gray-900">Clients</p>
@@ -165,7 +173,7 @@ export default async function DashboardPage() {
 
         <Link
           href="/calls"
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-gray-300 hover:bg-gray-50 transition-colors"
         >
           <div>
             <p className="text-sm font-semibold text-gray-900">Calls</p>
@@ -188,7 +196,7 @@ export default async function DashboardPage() {
 
         <Link
           href="/leads"
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-gray-300 hover:bg-gray-50 transition-colors"
         >
           <div>
             <p className="text-sm font-semibold text-gray-900">Leads</p>
@@ -216,7 +224,7 @@ export default async function DashboardPage() {
           <h2 className="text-base font-semibold text-gray-900">Recent Calls</h2>
           <Link
             href="/calls"
-            className="text-sm text-indigo-600 hover:underline"
+            className="text-sm text-gray-900 hover:underline"
           >
             View all
           </Link>
@@ -258,7 +266,7 @@ export default async function DashboardPage() {
                     )}
                     {sentimentBadge(call.sentiment)}
                     {call.lead_score != null && (
-                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 font-medium">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 font-medium">
                         Score {call.lead_score}/10
                       </span>
                     )}
@@ -288,7 +296,7 @@ export default async function DashboardPage() {
             <h2 className="text-base font-semibold text-gray-900">Hot Leads</h2>
             <Link
               href="/leads"
-              className="text-sm text-indigo-600 hover:underline"
+              className="text-sm text-gray-900 hover:underline"
             >
               View all leads
             </Link>
@@ -308,7 +316,7 @@ export default async function DashboardPage() {
                     )}
                     {urgencyBadge(lead.urgency)}
                     {lead.calls?.lead_score != null && (
-                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 font-medium">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 font-medium">
                         Score {lead.calls.lead_score}/10
                       </span>
                     )}
@@ -320,7 +328,7 @@ export default async function DashboardPage() {
                 <div className="text-right shrink-0">
                   <Link
                     href={`/clients/${lead.client_id}/leads`}
-                    className="text-xs text-indigo-600 hover:underline"
+                    className="text-xs text-gray-900 hover:underline"
                   >
                     View
                   </Link>

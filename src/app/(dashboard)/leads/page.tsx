@@ -127,21 +127,21 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const activeUrgency = urgency ?? 'all'
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
+    <div className="p-4 md:p-8">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Leads</h1>
         <p className="text-sm text-gray-500 mt-1">All leads across clients</p>
       </div>
 
       {/* Status tabs */}
-      <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
+      <div className="flex items-center gap-1 mb-4 border-b border-gray-200 overflow-x-auto">
         {statusTabs.map((tab) => (
           <Link
             key={tab.value}
             href={filterHref({ status: tab.value })}
-            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`min-h-[44px] md:min-h-0 px-3 py-2 text-sm font-medium border-b-2 transition-colors flex items-center shrink-0 ${
               activeStatus === tab.value
-                ? 'border-indigo-600 text-indigo-600'
+                ? 'border-gray-900 text-gray-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
@@ -149,7 +149,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
             <span
               className={`ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs ${
                 activeStatus === tab.value
-                  ? 'bg-indigo-100 text-indigo-700'
+                  ? 'bg-gray-200 text-gray-900'
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
@@ -160,14 +160,14 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
       </div>
 
       {/* Secondary filters */}
-      <div className="flex flex-wrap items-center gap-4 mb-6">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-4 md:mb-6">
+        <div className="flex items-center gap-1 flex-wrap">
           <span className="text-xs font-medium text-gray-500 mr-1">Urgency:</span>
           {urgencyFilters.map((f) => (
             <Link
               key={f.value}
               href={filterHref({ urgency: f.value })}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              className={`min-h-[44px] md:min-h-0 py-2.5 md:py-1 px-3 md:px-2.5 rounded-md text-xs font-medium transition-colors flex items-center ${
                 activeUrgency === f.value
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -203,78 +203,73 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
             description="Leads are automatically captured from incoming calls. They'll show up here once customers start calling."
           />
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Client
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Phone
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Service
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Urgency
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {leads.map((lead) => {
-                const st = STATUS_BADGE[lead.status]
-                const urg = URGENCY_BADGE[lead.urgency]
-                return (
-                  <tr key={lead.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                      {formatDate(lead.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                      <Link
-                        href={`/clients/${lead.client_id}/leads`}
-                        className="hover:text-indigo-600"
-                      >
-                        {clientMap.get(lead.client_id) ?? '—'}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                      {lead.name ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                      {lead.phone ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap max-w-[200px] truncate">
-                      {lead.service_interested ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      <span className={urg.className}>{urg.label}</span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.className}`}
-                      >
-                        {st.label}
-                      </span>
+          <>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Urgency</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {leads.map((lead) => {
+                  const st = STATUS_BADGE[lead.status]
+                  const urg = URGENCY_BADGE[lead.urgency]
+                  return (
+                    <tr key={lead.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{formatDate(lead.created_at)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        <Link href={`/clients/${lead.client_id}/leads`} className="hover:text-gray-900">{clientMap.get(lead.client_id) ?? '—'}</Link>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{lead.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{lead.phone ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap max-w-[200px] truncate">{lead.service_interested ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap"><span className={urg.className}>{urg.label}</span></td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.className}`}>{st.label}</span>
+                        {convertedLeadIds.has(lead.id) && (
+                          <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Converted</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {leads.map((lead) => {
+              const st = STATUS_BADGE[lead.status]
+              const urg = URGENCY_BADGE[lead.urgency]
+              return (
+                <div key={lead.id} className="p-4">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">{lead.name ?? '—'}</p>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${urg.className}`}>{urg.label}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2 truncate">{lead.service_interested ?? 'No service specified'}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.className}`}>{st.label}</span>
                       {convertedLeadIds.has(lead.id) && (
-                        <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
-                          Converted
-                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Converted</span>
                       )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    </div>
+                    <span className="text-xs text-gray-400">{formatDate(lead.created_at)}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          </>
         )}
       </div>
 

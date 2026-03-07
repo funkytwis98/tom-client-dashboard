@@ -97,64 +97,100 @@ export function AgencyCallsTable({ initialCalls, clientMap, totalCount, filters 
             description="When customers call your business, their calls will appear here with transcripts and summaries."
           />
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Direction</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Caller</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {calls.map((call) => {
-                const dir = DIRECTION_BADGE[call.direction]
-                const st = STATUS_BADGE[call.status] ?? { label: call.status, className: 'bg-gray-100 text-gray-800' }
-                return (
-                  <tr key={call.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                      <Link href={`/clients/${call.client_id}/calls/${call.id}`} className="hover:text-indigo-600">
-                        {formatDate(call.created_at)}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                      <Link href={`/clients/${call.client_id}/calls`} className="hover:text-indigo-600">
-                        {clientMap[call.client_id] ?? '—'}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${dir?.className ?? 'bg-gray-100 text-gray-800'}`}>
-                        {dir?.label ?? call.direction}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                      {call.caller_name ?? call.caller_number ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                      {formatDuration(call.duration_seconds)}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap">
-                      {call.lead_score != null ? (
-                        <span className={`font-medium ${call.lead_score >= 8 ? 'text-green-600' : call.lead_score >= 5 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                          {call.lead_score}/10
+          <>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Direction</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Caller</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {calls.map((call) => {
+                  const dir = DIRECTION_BADGE[call.direction]
+                  const st = STATUS_BADGE[call.status] ?? { label: call.status, className: 'bg-gray-100 text-gray-800' }
+                  return (
+                    <tr key={call.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        <Link href={`/clients/${call.client_id}/calls/${call.id}`} className="hover:text-gray-900">
+                          {formatDate(call.created_at)}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        <Link href={`/clients/${call.client_id}/calls`} className="hover:text-gray-900">
+                          {clientMap[call.client_id] ?? '—'}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${dir?.className ?? 'bg-gray-100 text-gray-800'}`}>
+                          {dir?.label ?? call.direction}
                         </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.className}`}>
-                        {st.label}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        {call.caller_name ?? call.caller_number ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {formatDuration(call.duration_seconds)}
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        {call.lead_score != null ? (
+                          <span className={`font-medium ${call.lead_score >= 8 ? 'text-green-600' : call.lead_score >= 5 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                            {call.lead_score}/10
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.className}`}>
+                          {st.label}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {calls.map((call) => {
+              const dir = DIRECTION_BADGE[call.direction]
+              const st = STATUS_BADGE[call.status] ?? { label: call.status, className: 'bg-gray-100 text-gray-800' }
+              return (
+                <Link key={call.id} href={`/clients/${call.client_id}/calls/${call.id}`} className="block p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {call.caller_name ?? call.caller_number ?? 'Unknown'}
+                    </p>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${st.className}`}>
+                      {st.label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 line-clamp-2 mb-2">
+                    {call.summary ?? 'No summary'}
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <span>{formatDuration(call.duration_seconds)}</span>
+                      <span>{formatDate(call.created_at)}</span>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${dir?.className ?? 'bg-gray-100 text-gray-800'}`}>
+                      {dir?.label ?? call.direction}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+          </>
         )}
       </div>
 
@@ -163,7 +199,7 @@ export function AgencyCallsTable({ initialCalls, clientMap, totalCount, filters 
           <button
             onClick={loadMore}
             disabled={loading}
-            className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2 min-h-[44px] md:min-h-0 text-sm text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             {loading ? 'Loading...' : `Load more (${totalCount - calls.length} remaining)`}
           </button>
