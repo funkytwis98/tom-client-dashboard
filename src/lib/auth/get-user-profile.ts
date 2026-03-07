@@ -8,6 +8,7 @@ export interface UserContext {
   profile: UserProfile | null
   role: 'admin' | 'client_owner'
   clientId: string | null
+  productsEnabled: string[]
 }
 
 /**
@@ -30,11 +31,24 @@ export const getUserContext = cache(async (): Promise<UserContext | null> => {
   const role = profile?.role ?? 'admin'
   const clientId = profile?.client_id ?? null
 
+  // Fetch products_enabled for client_owner users
+  let productsEnabled: string[] = []
+  if (role === 'client_owner' && clientId) {
+    const { data: client } = await supabase
+      .from('clients')
+      .select('products_enabled')
+      .eq('id', clientId)
+      .single()
+
+    productsEnabled = (client?.products_enabled as string[] | null) ?? ['receptionist']
+  }
+
   return {
     userId: user.id,
     email: user.email ?? '',
     profile: profile as UserProfile | null,
     role,
     clientId,
+    productsEnabled,
   }
 })
