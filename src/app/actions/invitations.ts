@@ -60,7 +60,8 @@ export async function inviteClientOwner(clientId: string, email: string) {
   revalidatePath(`/clients/${clientId}`)
 
   // Return the signup URL with token (admin can share this with the client owner)
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ai-receptionist-snowy.vercel.app'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!baseUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set — required for invitation URLs')
   const signupUrl = `${baseUrl}/signup?token=${token}`
 
   return { signupUrl, clientName: client.name }

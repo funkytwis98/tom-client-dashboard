@@ -232,7 +232,11 @@ export async function getStripePortalUrl(clientId: string) {
   const stripe = getStripeClient()
   const session = await stripe.billingPortal.sessions.create({
     customer: client.stripe_customer_id,
-    return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ai-receptionist-snowy.vercel.app'}/clients/${clientId}/billing`,
+    return_url: (() => {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL
+      if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set — required for Stripe billing portal redirect')
+      return `${appUrl}/clients/${clientId}/billing`
+    })(),
   })
 
   return { success: true, url: session.url }

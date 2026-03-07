@@ -26,26 +26,31 @@ const TABS = [
 async function getCallVolumeData(clientId: string) {
   const supabase = await createClient()
   const days = 14
-  const results: { date: string; calls: number }[] = []
   const now = new Date()
+  const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1))
 
+  const { data: calls } = await supabase
+    .from('calls')
+    .select('created_at')
+    .eq('client_id', clientId)
+    .gte('created_at', startDate.toISOString())
+    .neq('status', 'in_progress')
+
+  const countsByDate = new Map<string, number>()
+  for (const call of calls ?? []) {
+    const d = new Date(call.created_at)
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+    countsByDate.set(key, (countsByDate.get(key) ?? 0) + 1)
+  }
+
+  const results: { date: string; calls: number }[] = []
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now)
     d.setDate(d.getDate() - i)
-    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString()
-    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString()
-
-    const { count } = await supabase
-      .from('calls')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_id', clientId)
-      .gte('created_at', dayStart)
-      .lt('created_at', dayEnd)
-      .neq('status', 'in_progress')
-
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
     results.push({
       date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      calls: count ?? 0,
+      calls: countsByDate.get(key) ?? 0,
     })
   }
   return results
