@@ -53,6 +53,7 @@ export function isRouteAllowed(
 /**
  * Returns the default route for a client. Always returns '/' (Health Overview).
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function getDefaultRoute(_productsEnabled: string[]): string {
   return '/'
 }

@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { ClientFilterSelect } from '@/components/dashboard/ClientFilterSelect'
+import { EmptyState } from '@/components/dashboard/EmptyState'
 import type { Lead, Client } from '@/types/domain'
 
 interface LeadsPageProps {
@@ -37,8 +39,8 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
 
   const supabase = await createClient()
 
-  // Fetch all leads (for tab counts) and clients in parallel
-  const [allLeadsResult, filteredLeadsResult, clientsResult] = await Promise.all([
+  // Fetch all leads (for tab counts), clients, and converted lead IDs in parallel
+  const [allLeadsResult, filteredLeadsResult, clientsResult, convertedResult] = await Promise.all([
     supabase
       .from('leads')
       .select('status')
@@ -62,6 +64,10 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
       return query
     })(),
     supabase.from('clients').select('id, name').order('name'),
+    supabase
+      .from('customers')
+      .select('converted_from_lead_id')
+      .not('converted_from_lead_id', 'is', null),
   ])
 
   const allLeads = (allLeadsResult.data ?? []) as { status: string }[]
@@ -73,6 +79,9 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
     : ((clientsResult.data ?? []) as Pick<Client, 'id' | 'name'>[])
 
   const clientMap = new Map(clients.map((c) => [c.id, c.name]))
+  const convertedLeadIds = new Set(
+    (convertedResult.data ?? []).map((d: { converted_from_lead_id: string }) => d.converted_from_lead_id)
+  )
 
   // Compute tab counts from full result set
   const counts = {
@@ -188,25 +197,11 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {leads.length === 0 ? (
-          <div className="text-center py-16">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-            <p className="mt-3 text-sm font-medium text-gray-900">No leads found</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Leads are captured automatically from AI receptionist calls.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Users className="h-12 w-12" />}
+            title="No leads yet"
+            description="Leads are automatically captured from incoming calls. They'll show up here once customers start calling."
+          />
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -269,6 +264,11 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
                       >
                         {st.label}
                       </span>
+                      {convertedLeadIds.has(lead.id) && (
+                        <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                          Converted
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )

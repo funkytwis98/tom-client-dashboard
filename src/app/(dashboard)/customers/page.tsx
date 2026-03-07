@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { UserCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { ClientFilterSelect } from '@/components/dashboard/ClientFilterSelect'
+import { EmptyState } from '@/components/dashboard/EmptyState'
 import type { Customer, Client } from '@/types/domain'
 
 interface CustomersPageProps {
@@ -123,13 +125,11 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {customers.length === 0 ? (
-          <div className="text-center py-16">
-            <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <p className="mt-3 text-sm font-medium text-gray-900">No customers found</p>
-            <p className="text-xs text-gray-500 mt-1">Customers are auto-created when leads are booked, or add manually from a client page.</p>
-          </div>
+          <EmptyState
+            icon={<UserCircle className="h-12 w-12" />}
+            title="No customers yet"
+            description="Customer profiles are created from call interactions. They'll appear here as your business receives calls."
+          />
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
