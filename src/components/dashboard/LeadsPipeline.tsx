@@ -1,12 +1,14 @@
 'use client'
 
 import { useOptimistic, useTransition, useState } from 'react'
-import { updateLeadStatus } from '@/app/actions/leads'
+import { updateLeadStatus, convertLeadToCustomer } from '@/app/actions/leads'
+import { useToast } from '@/components/dashboard/Toast'
 import type { Lead } from '@/types/domain'
 
 interface LeadsPipelineProps {
   clientId: string
   initialLeads: Lead[]
+  convertedLeadIds?: string[]
 }
 
 type StatusFilter = 'all' | Lead['status']
@@ -42,15 +44,43 @@ function formatDate(dateStr: string): string {
   })
 }
 
-export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
+const LEADS_PAGE_SIZE = 10
+
+export function LeadsPipeline({ clientId, initialLeads, convertedLeadIds = [] }: LeadsPipelineProps) {
   const [activeTab, setActiveTab] = useState<StatusFilter>('all')
+  const [visibleCount, setVisibleCount] = useState(LEADS_PAGE_SIZE)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [convertedIds, setConvertedIds] = useState<Set<string>>(() => new Set(convertedLeadIds))
   const [optimisticLeads, updateOptimistic] = useOptimistic(
     initialLeads,
     (state: Lead[], { leadId, status }: { leadId: string; status: Lead['status'] }) =>
       state.map((l) => (l.id === leadId ? { ...l, status } : l))
   )
+
+  const { showToast } = useToast()
+
+  function handleConvert(leadId: string) {
+    startTransition(async () => {
+      setActionError(null)
+      try {
+        const result = await convertLeadToCustomer(leadId, clientId)
+        if (result.converted) {
+          setConvertedIds((prev) => new Set(prev).add(leadId))
+          showToast('Lead converted to customer')
+        } else if (result.customerId) {
+          setConvertedIds((prev) => new Set(prev).add(leadId))
+          showToast('Customer already exists for this lead')
+        } else {
+          showToast('Could not convert lead', 'error')
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Conversion failed'
+        setActionError(msg)
+        showToast(msg, 'error')
+      }
+    })
+  }
 
   function handleStatusChange(leadId: string, status: Lead['status']) {
     startTransition(async () => {
@@ -58,8 +88,11 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
       updateOptimistic({ leadId, status })
       try {
         await updateLeadStatus(leadId, status, clientId)
+        showToast(`Lead marked as ${status}`)
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : 'Failed to update lead status')
+        const msg = err instanceof Error ? err.message : 'Failed to update lead status'
+        setActionError(msg)
+        showToast(msg, 'error')
       }
     })
   }
@@ -69,8 +102,14 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
       ? optimisticLeads
       : optimisticLeads.filter((l) => l.status === activeTab)
 
+  const visible = filtered.slice(0, visibleCount)
+  const hasMore = filtered.length > visibleCount
+
   return (
     <div>
+      <p className="text-sm text-gray-500 mb-3">
+        {optimisticLeads.length} {optimisticLeads.length === 1 ? 'lead' : 'leads'}
+      </p>
       {actionError && (
         <div className="mb-4 flex items-center justify-between rounded-md bg-red-50 border border-red-200 px-4 py-3">
           <p className="text-sm text-red-700">{actionError}</p>
@@ -92,7 +131,7 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
           return (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => { setActiveTab(tab.value); setVisibleCount(LEADS_PAGE_SIZE); }}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.value
                   ? 'border-gray-900 text-gray-900'
@@ -141,7 +180,7 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((lead) => {
+              {visible.map((lead) => {
                 const urgencyBadge = URGENCY_BADGE[lead.urgency]
                 const statusBadge = STATUS_BADGE[lead.status]
                 return (
@@ -208,6 +247,19 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
                             Completed
                           </button>
                         )}
+                        {convertedIds.has(lead.id) ? (
+                          <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-medium">
+                            Converted
+                          </span>
+                        ) : (lead.status === 'booked' || lead.status === 'completed') && (
+                          <button
+                            onClick={() => handleConvert(lead.id)}
+                            disabled={isPending}
+                            className="text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 transition-colors font-medium"
+                          >
+                            Convert to Customer
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -215,6 +267,17 @@ export function LeadsPipeline({ clientId, initialLeads }: LeadsPipelineProps) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setVisibleCount((n) => n + LEADS_PAGE_SIZE)}
+            className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            Load more ({filtered.length - visibleCount} remaining)
+          </button>
         </div>
       )}
     </div>

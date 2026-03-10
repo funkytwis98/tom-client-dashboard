@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getClient } from '@/app/actions/clients'
-import { getLeadsForClient } from '@/app/actions/leads'
+import { getLeadsForClient, getConvertedLeadIds } from '@/app/actions/leads'
 import { LeadsPipeline } from '@/components/dashboard/LeadsPipeline'
 
 interface LeadsPageProps {
@@ -10,9 +10,10 @@ interface LeadsPageProps {
 
 export default async function LeadsPage({ params }: LeadsPageProps) {
   const { id } = await params
-  const [client, leads] = await Promise.all([
+  const [client, leads, convertedIds] = await Promise.all([
     getClient(id),
     getLeadsForClient(id).catch(() => []),
+    getConvertedLeadIds(id).catch(() => new Set<string>()),
   ])
 
   if (!client) {
@@ -50,7 +51,7 @@ export default async function LeadsPage({ params }: LeadsPageProps) {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <LeadsPipeline clientId={id} initialLeads={leads} />
+        <LeadsPipeline clientId={id} initialLeads={leads} convertedLeadIds={Array.from(convertedIds)} />
       </div>
     </div>
   )

@@ -56,7 +56,7 @@ function LeadScoreBadge({ score }: { score: number | null }) {
 type DirectionFilter = 'all' | 'inbound' | 'outbound'
 type StatusFilter = 'all' | 'completed' | 'missed' | 'voicemail'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 10
 
 export function CallLogTable({ clientId, initialCalls }: CallLogTableProps) {
   const [calls, setCalls] = useState<Call[]>(initialCalls)
@@ -120,6 +120,9 @@ export function CallLogTable({ clientId, initialCalls }: CallLogTableProps) {
 
   return (
     <div>
+      <p className="text-sm text-gray-500 mb-3">
+        {filtered.length} {filtered.length === 1 ? 'call' : 'calls'}
+      </p>
       {/* Filter bar */}
       <div className="flex flex-wrap gap-4 mb-4">
         <div className="flex items-center gap-2">

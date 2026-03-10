@@ -263,9 +263,12 @@ async function handleCallAnalyzed(
   // Check what Claude's analysis already set — don't overwrite it
   const { data: existingCall } = await supabase
     .from('calls')
-    .select('summary, sentiment')
+    .select('summary, sentiment, lead_score')
     .eq('retell_call_id', call.call_id)
     .single()
+
+  // If Claude already analyzed this call (summary exists), skip Retell's analysis entirely
+  if (existingCall?.summary) return
 
   // Map Retell sentiment to our schema
   type Sentiment = 'positive' | 'neutral' | 'negative'

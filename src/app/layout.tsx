@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Receptionist — Command Center",
-  description: "AI-powered phone receptionist management dashboard",
+  title: "Tom Agency — Business Dashboard",
+  description: "Tom Agency AI-powered business management dashboard",
 };
 
 export default function RootLayout({

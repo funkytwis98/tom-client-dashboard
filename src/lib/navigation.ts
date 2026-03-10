@@ -21,11 +21,13 @@ export interface NavConfig {
  */
 export const CLIENT_NAV_CONFIG: NavConfig[] = [
   { label: 'Health Overview', href: '/', icon: 'activity' },
+  { label: 'Notifications', href: '/notifications', icon: 'bell' },
+  { label: 'Teach Sarah', href: '/learn', icon: 'book', requiredProducts: ['receptionist'] },
   { label: 'Calls', href: '/calls', icon: 'phone', requiredProducts: ['receptionist'] },
   { label: 'Leads', href: '/leads', icon: 'target', requiredProducts: ['receptionist'] },
   { label: 'Customers', href: '/customers', icon: 'users', requiredProducts: ['receptionist'] },
-  { label: 'Posts', href: '/posts', icon: 'file-text', requiredProducts: ['social_media'] },
   { label: 'Conversations', href: '/conversations', icon: 'message-circle', requiredProducts: ['social_media'] },
+  { label: 'Posts', href: '/posts', icon: 'file-text', requiredProducts: ['social_media'] },
   { label: 'Social Connections', href: '/social', icon: 'share-2', requiredProducts: ['social_media'] },
   { label: 'Settings', href: '/settings', icon: 'settings' },
 ]

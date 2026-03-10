@@ -25,7 +25,7 @@ export default async function CallsPage({ params, searchParams }: CallsPageProps
     .select('*')
     .eq('client_id', id)
     .order('created_at', { ascending: false })
-    .limit(25)
+    .limit(10)
 
   if (direction && direction !== 'all') {
     query = query.eq('direction', direction)

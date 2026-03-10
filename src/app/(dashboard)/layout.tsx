@@ -17,6 +17,7 @@ export default async function DashboardLayout({
           clientId={ctx?.clientId ?? null}
           userEmail={ctx?.email ?? 'Admin'}
           displayName={ctx?.profile?.display_name ?? null}
+          productsEnabled={ctx?.productsEnabled?.length ? ctx.productsEnabled : ['receptionist', 'social_media']}
         />
 
         {/* Main content */}
