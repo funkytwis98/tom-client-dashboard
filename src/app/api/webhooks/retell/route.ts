@@ -3,8 +3,9 @@ import { verifyRetellSignature } from '@/lib/retell/webhook-verify'
 import { getClientByAgentId } from '@/lib/retell/client'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isAfterHours } from '@/lib/utils/time'
-import { analyzeCallTranscript } from '@/lib/analysis/lead-extraction'
+import { analyzeCallTranscript, analyzeCallWithBrain } from '@/lib/analysis/lead-extraction'
 import { sendOwnerSMS, shouldSendNotification } from '@/lib/notifications/twilio'
+import { buildPrompt, writeReflection, upsertContact, logUsage } from '@/lib/brain'
 import type { RetellWebhookEvent } from '@/types/retell'
 import { reportError } from '@/lib/monitoring/report-error'
 import type { NotificationPayload } from '@/types/api'
@@ -23,34 +24,47 @@ export async function POST(req: Request): Promise<Response> {
 
   // 1. Read raw body text (needed for signature verification before JSON parsing)
   const body = await req.text()
+  console.log('[retell-webhook] Received webhook, body length:', body.length)
 
   // 2. Verify Retell HMAC-SHA256 signature
   const signature = req.headers.get('x-retell-signature')
+  console.log('[retell-webhook] Signature present:', !!signature)
   if (!await verifyRetellSignature(body, signature, env.retellApiKey())) {
+    console.error('[retell-webhook] Signature verification FAILED. Signature:', signature?.substring(0, 20) + '...')
     return Response.json({ error: 'Invalid signature' }, { status: 401 })
   }
+  console.log('[retell-webhook] Signature verified OK')
 
   // 3. Parse event
   let event: RetellWebhookEvent
   try {
     event = JSON.parse(body) as RetellWebhookEvent
-  } catch {
+  } catch (err) {
+    console.error('[retell-webhook] JSON parse failed:', err)
     return Response.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const callId = event.call.call_id
   const eventType = event.event
+  console.log('[retell-webhook] Event:', eventType, '| Call ID:', callId, '| Agent:', event.call.agent_id)
+
   const supabase = createServiceClient()
 
   // 4. Idempotency check — skip if we already processed this (call_id, event_type) pair
-  const { data: existing } = await supabase
+  const { data: existing, error: idempotencyError } = await supabase
     .from('webhook_processing_log')
     .select('id')
     .eq('retell_call_id', callId)
     .eq('event_type', eventType)
     .single()
 
+  if (idempotencyError && idempotencyError.code !== 'PGRST116') {
+    // PGRST116 = "no rows returned" which is expected when not a duplicate
+    console.error('[retell-webhook] Idempotency check error:', idempotencyError)
+  }
+
   if (existing) {
+    console.log('[retell-webhook] Duplicate event, skipping:', callId, eventType)
     return Response.json({ received: true, duplicate: true }, { status: 200 })
   }
 
@@ -67,22 +81,24 @@ export async function POST(req: Request): Promise<Response> {
         await handleCallAnalyzed(event, supabase)
         break
       default:
-        // Unknown event — log and ignore
         console.warn('[retell-webhook] Unknown event type:', eventType)
     }
   } catch (err) {
-    console.error('[retell-webhook] Handler error:', err)
-    // Do NOT insert to processing log — let Retell retry
+    console.error('[retell-webhook] Handler error for', eventType, ':', err)
     return Response.json({ error: 'Internal server error' }, { status: 500 })
   }
 
   // 6. Record successful processing (idempotency guard for future retries)
-  await supabase.from('webhook_processing_log').insert({
+  const { error: logError } = await supabase.from('webhook_processing_log').insert({
     retell_call_id: callId,
     event_type: eventType,
     processed_at: new Date().toISOString(),
   })
+  if (logError) {
+    console.error('[retell-webhook] Failed to insert processing log:', logError)
+  }
 
+  console.log('[retell-webhook] Successfully processed:', eventType, callId)
   return Response.json({ received: true }, { status: 200 })
 }
 
@@ -98,12 +114,13 @@ async function handleCallStarted(
   const client = await getClientByAgentId(call.agent_id)
 
   if (!client) {
-    // Unknown agent — not our call, log and skip
-    console.warn('[retell-webhook] Unknown agent_id:', call.agent_id)
+    console.error('[retell-webhook] handleCallStarted: No client found for agent_id:', call.agent_id)
     return
   }
 
-  await supabase.from('calls').insert({
+  console.log('[retell-webhook] handleCallStarted: client=', client.name, 'from=', call.from_number)
+
+  const { error } = await supabase.from('calls').insert({
     client_id: client.id,
     retell_call_id: call.call_id,
     direction: call.direction,
@@ -111,6 +128,13 @@ async function handleCallStarted(
     status: 'in_progress',
     call_metadata: {},
   })
+
+  if (error) {
+    console.error('[retell-webhook] handleCallStarted: INSERT calls failed:', error)
+    throw new Error(`Failed to insert call: ${error.message}`)
+  }
+
+  console.log('[retell-webhook] handleCallStarted: call inserted successfully')
 }
 
 async function handleCallEnded(
@@ -121,9 +145,11 @@ async function handleCallEnded(
   const client = await getClientByAgentId(call.agent_id)
 
   if (!client) {
-    console.warn('[retell-webhook] Unknown agent_id:', call.agent_id)
+    console.error('[retell-webhook] handleCallEnded: No client found for agent_id:', call.agent_id)
     return
   }
+
+  console.log('[retell-webhook] handleCallEnded: client=', client.name, 'duration=', call.duration_ms, 'ms')
 
   // Determine call status
   const afterHours = isAfterHours(
@@ -142,43 +168,140 @@ async function handleCallEnded(
     status = 'completed'
   }
 
-  await supabase
-    .from('calls')
-    .update({
-      status,
-      duration_seconds: Math.round(call.duration_ms / 1000),
-      transcript: call.transcript,
-      recording_url: call.recording_url,
-    })
-    .eq('retell_call_id', call.call_id)
-
-  // Fetch the call record ID for lead linkage
-  const { data: callRecord } = await supabase
+  // Check if a call_started record exists to update
+  const { data: existingCall, error: lookupError } = await supabase
     .from('calls')
     .select('id')
     .eq('retell_call_id', call.call_id)
     .single()
 
-  // Lead extraction — analyze transcript with Claude Haiku
-  let leadId: string | null = null
-  let callAnalysis: Awaited<ReturnType<typeof analyzeCallTranscript>> | null = null
-  try {
-    callAnalysis = await analyzeCallTranscript(call.transcript)
+  if (lookupError && lookupError.code !== 'PGRST116') {
+    console.error('[retell-webhook] handleCallEnded: lookup error:', lookupError)
+  }
 
-    // Update call record with AI-derived fields
-    await supabase
+  if (existingCall) {
+    // Update existing call_started record
+    const { error: updateError } = await supabase
       .from('calls')
       .update({
-        sentiment: callAnalysis.sentiment,
-        lead_score: callAnalysis.lead_score,
-        summary: callAnalysis.summary,
-        caller_name: callAnalysis.caller_name,
+        status,
+        duration_seconds: Math.round(call.duration_ms / 1000),
+        transcript: call.transcript,
+        recording_url: call.recording_url,
       })
       .eq('retell_call_id', call.call_id)
 
+    if (updateError) {
+      console.error('[retell-webhook] handleCallEnded: UPDATE calls failed:', updateError)
+    }
+  } else {
+    // No call_started record — insert fresh (call_started may have been missed)
+    console.warn('[retell-webhook] handleCallEnded: No call_started record found, inserting fresh row')
+    const { error: insertError } = await supabase.from('calls').insert({
+      client_id: client.id,
+      retell_call_id: call.call_id,
+      direction: call.direction,
+      caller_number: call.from_number,
+      status,
+      duration_seconds: Math.round(call.duration_ms / 1000),
+      transcript: call.transcript,
+      recording_url: call.recording_url,
+      call_metadata: call,
+    })
+
+    if (insertError) {
+      console.error('[retell-webhook] handleCallEnded: INSERT calls failed:', insertError)
+      throw new Error(`Failed to insert call: ${insertError.message}`)
+    }
+  }
+
+  // Fetch the call record ID for lead linkage
+  const { data: callRecord, error: fetchError } = await supabase
+    .from('calls')
+    .select('id')
+    .eq('retell_call_id', call.call_id)
+    .single()
+
+  if (fetchError) {
+    console.error('[retell-webhook] handleCallEnded: Failed to fetch call record:', fetchError)
+  }
+
+  console.log('[retell-webhook] handleCallEnded: call record id=', callRecord?.id, 'status=', status)
+
+  // Lead extraction — try brain-enhanced first, fall back to basic
+  let leadId: string | null = null
+  let callAnalysis: Awaited<ReturnType<typeof analyzeCallTranscript>> | null = null
+  try {
+    // Try brain-enhanced analysis
+    let usedBrain = false
+    try {
+      const brainResult = await buildPrompt(client.id, 'receptionist', {
+        callerPhone: call.from_number,
+      })
+
+      const result = await analyzeCallWithBrain(
+        call.transcript,
+        brainResult.prompt,
+        brainResult.model,
+      )
+
+      callAnalysis = result.analysis
+
+      // Write reflection if available
+      if (result.reflection) {
+        result.reflection.client_id = client.id
+        writeReflection(result.reflection)
+      }
+
+      // Update contact history
+      upsertContact(client.id, call.from_number, {
+        name: callAnalysis.caller_name,
+        interactionSummary: callAnalysis.summary,
+        confidenceScore: result.reflection?.confidence_score,
+      })
+
+      // Log usage
+      logUsage({
+        clientId: client.id,
+        capability: 'receptionist',
+        model: brainResult.model,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        triggerType: 'phone_call',
+      })
+
+      usedBrain = true
+      console.log('[retell-webhook] Brain-enhanced analysis succeeded')
+    } catch (brainErr) {
+      console.warn('[retell-webhook] Brain extraction failed, using basic:', String(brainErr))
+    }
+
+    if (!usedBrain) {
+      callAnalysis = await analyzeCallTranscript(call.transcript)
+      console.log('[retell-webhook] Basic analysis result:', JSON.stringify(callAnalysis))
+    }
+
+    // Update call record with AI-derived fields
+    if (callAnalysis) {
+      const { error: analysisUpdateError } = await supabase
+        .from('calls')
+        .update({
+          sentiment: callAnalysis.sentiment,
+          lead_score: callAnalysis.lead_score,
+          summary: callAnalysis.summary,
+          caller_name: callAnalysis.caller_name,
+          callback_promised: callAnalysis.requires_callback,
+        })
+        .eq('retell_call_id', call.call_id)
+
+      if (analysisUpdateError) {
+        console.error('[retell-webhook] Failed to update call with analysis:', analysisUpdateError)
+      }
+    }
+
     // Create lead record if this call has lead potential
-    if (callAnalysis.is_lead) {
-      const { data: leadRecord } = await supabase
+    if (callAnalysis?.is_lead) {
+      const { data: leadRecord, error: leadError } = await supabase
         .from('leads')
         .insert({
           client_id: client.id,
@@ -194,11 +317,15 @@ async function handleCallEnded(
         .select('id')
         .single()
 
+      if (leadError) {
+        console.error('[retell-webhook] Failed to insert lead:', leadError)
+      }
+
       leadId = leadRecord?.id ?? null
+      console.log('[retell-webhook] Lead created:', leadId)
     }
   } catch (err) {
-    // Non-fatal — call is already logged, analysis is best-effort
-    console.error("[retell-webhook] Lead extraction failed:", String(err))
+    console.error('[retell-webhook] Lead extraction failed:', String(err))
     reportError({
       type: 'lead_extraction',
       message: String(err),
@@ -206,14 +333,6 @@ async function handleCallEnded(
       callId: callRecord?.id ?? undefined,
       context: { retell_call_id: call.call_id },
     })
-    // Merge error into existing metadata instead of replacing it
-    const { data: existing } = await supabase
-      .from('calls')
-      .select('call_metadata')
-      .eq('retell_call_id', call.call_id)
-      .single()
-    const merged = { ...(existing?.call_metadata as Record<string, unknown> ?? {}), lead_extraction_error: String(err) }
-    await supabase.from('calls').update({ call_metadata: merged }).eq('retell_call_id', call.call_id)
   }
 
   // Notify business owner via SMS (respects notification settings)
@@ -233,19 +352,28 @@ async function handleCallEnded(
         caller_number: call.from_number,
         summary: callAnalysis?.summary ?? undefined,
         service: callAnalysis?.service_interested ?? undefined,
+        is_after_hours: afterHours,
       }
 
       const settings = (client.settings ?? {}) as ClientSettings
       if (shouldSendNotification(settings, client.timezone, payload)) {
         await sendOwnerSMS(payload, supabase)
+        console.log('[retell-webhook] Owner SMS sent to:', client.owner_phone)
 
         // Mark lead as owner_notified
         if (leadId) {
-          await supabase.from('leads').update({ owner_notified: true }).eq('id', leadId)
+          const { error: notifyError } = await supabase
+            .from('leads')
+            .update({ owner_notified: true })
+            .eq('id', leadId)
+          if (notifyError) {
+            console.error('[retell-webhook] Failed to mark lead as notified:', notifyError)
+          }
         }
+      } else {
+        console.log('[retell-webhook] Notification suppressed by settings')
       }
     } catch (err) {
-      // Non-fatal — call is already logged, notification is best-effort
       console.error('[retell-webhook] Owner notification failed:', err)
     }
   }
@@ -258,17 +386,26 @@ async function handleCallAnalyzed(
   const { call } = event
   const analysis = call.call_analysis
 
-  if (!analysis) return
+  if (!analysis) {
+    console.log('[retell-webhook] handleCallAnalyzed: no analysis data, skipping')
+    return
+  }
 
-  // Check what Claude's analysis already set — don't overwrite it
-  const { data: existingCall } = await supabase
+  const { data: existingCall, error: fetchError } = await supabase
     .from('calls')
-    .select('summary, sentiment, lead_score')
+    .select('summary, sentiment, lead_score, caller_name, status')
     .eq('retell_call_id', call.call_id)
     .single()
 
+  if (fetchError) {
+    console.error('[retell-webhook] handleCallAnalyzed: fetch error:', fetchError)
+  }
+
   // If Claude already analyzed this call (summary exists), skip Retell's analysis entirely
-  if (existingCall?.summary) return
+  if (existingCall?.summary) {
+    console.log('[retell-webhook] handleCallAnalyzed: Claude already analyzed, skipping Retell analysis')
+    return
+  }
 
   // Map Retell sentiment to our schema
   type Sentiment = 'positive' | 'neutral' | 'negative'
@@ -280,7 +417,6 @@ async function handleCallAnalyzed(
   }
   const sentiment: Sentiment = sentimentMap[analysis.user_sentiment ?? 'Unknown'] ?? 'neutral'
 
-  // Only fill in fields that Claude's analysis didn't already populate
   const updates: Record<string, unknown> = {}
 
   if (!existingCall?.summary) {
@@ -290,11 +426,16 @@ async function handleCallAnalyzed(
     updates.sentiment = sentiment
   }
 
-  if (analysis.in_voicemail === true) {
-    updates.status = 'voicemail'
-  }
-
   if (Object.keys(updates).length > 0) {
-    await supabase.from('calls').update(updates).eq('retell_call_id', call.call_id)
+    const { error: updateError } = await supabase
+      .from('calls')
+      .update(updates)
+      .eq('retell_call_id', call.call_id)
+
+    if (updateError) {
+      console.error('[retell-webhook] handleCallAnalyzed: update failed:', updateError)
+    } else {
+      console.log('[retell-webhook] handleCallAnalyzed: updated call with Retell analysis')
+    }
   }
 }
