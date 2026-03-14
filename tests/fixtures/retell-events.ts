@@ -26,7 +26,7 @@ export const MOCK_CALL_ENDED: RetellCallEndedEvent = {
     end_timestamp: 1709280180000,
     duration_ms: 180000,
     transcript:
-      'Agent: Thanks for calling Interstate Tires, this is Sarah, how can I help you today?\nUser: Hi, I need a tire rotation and maybe an oil change.\nAgent: Sure, I can help with that. May I get your name?\nUser: John Smith.\nAgent: Great, John! When would you like to come in?',
+      'Agent: Thanks for calling Interstate Tires, this is Tom, how can I help you today?\nUser: Hi, I need a tire rotation and maybe an oil change.\nAgent: Sure, I can help with that. May I get your name?\nUser: John Smith.\nAgent: Great, John! When would you like to come in?',
     recording_url: 'https://storage.retellai.com/recordings/call_test_123.mp3',
   },
 }

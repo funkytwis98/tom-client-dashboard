@@ -161,7 +161,7 @@ export function NotificationInbox({ initialNotifications }: NotificationInboxPro
             </div>
             <h3 className="mt-3 text-sm font-medium text-gray-900">No notifications yet</h3>
             <p className="mt-1 text-xs text-gray-500 max-w-sm mx-auto">
-              Notifications will appear here when Sarah handles calls.
+              Notifications will appear here when your receptionist handles calls.
             </p>
           </div>
         ) : (

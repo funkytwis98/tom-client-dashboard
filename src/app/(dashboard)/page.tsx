@@ -1,73 +1,58 @@
 import { createClient } from '@/lib/supabase/server'
-import { Analytics } from '@/components/dashboard/Analytics'
-import { SystemHealth } from '@/components/dashboard/SystemHealth'
-import { HealthOverview } from '@/components/dashboard/HealthOverview'
+import { getUserContext } from '@/lib/auth/get-user-profile'
 import { CallVolumeChart } from '@/components/dashboard/CallVolumeChart'
-import { RealtimeCallAlerts } from '@/components/dashboard/RealtimeCallAlerts'
 import Link from 'next/link'
-import type { Call, Lead } from '@/types/domain'
+import { Phone, Target, Clock, ClipboardList, Users, Globe, Lightbulb, FileText, BookOpen, Settings } from 'lucide-react'
 
 function formatDuration(seconds: number | null): string {
-  if (!seconds) return '—'
+  if (!seconds) return '0:00'
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function formatPhone(phone: string | null): string {
-  if (!phone) return 'Unknown'
-  return phone
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 
-function sentimentBadge(sentiment: string | null) {
-  if (!sentiment) return null
-  const map: Record<string, string> = {
-    positive: 'bg-green-50 text-green-700',
-    neutral: 'bg-gray-100 text-gray-600',
-    negative: 'bg-red-50 text-red-700',
-  }
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-        map[sentiment] ?? 'bg-gray-100 text-gray-600'
-      }`}
-    >
-      {sentiment}
-    </span>
-  )
+function getGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
 }
 
-function urgencyBadge(urgency: string) {
-  const map: Record<string, string> = {
-    urgent: 'bg-red-100 text-red-700',
-    high: 'bg-orange-100 text-orange-700',
-    medium: 'bg-yellow-50 text-yellow-700',
-    low: 'bg-gray-100 text-gray-600',
-  }
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-        map[urgency] ?? 'bg-gray-100 text-gray-600'
-      }`}
-    >
-      {urgency}
-    </span>
-  )
+function sentimentColor(sentiment: string | null): string {
+  if (sentiment === 'positive') return 'bg-green-50 text-green-700'
+  if (sentiment === 'negative') return 'bg-red-50 text-red-700'
+  return 'bg-gray-100 text-gray-600'
 }
 
-async function getCallVolumeData(supabase: Awaited<ReturnType<typeof createClient>>, clientId?: string) {
+function urgencyDot(urgency: string): string {
+  if (urgency === 'high' || urgency === 'urgent') return 'bg-amber-400'
+  if (urgency === 'medium') return 'bg-blue-400'
+  return 'bg-gray-300'
+}
+
+async function getCallVolumeData(supabase: Awaited<ReturnType<typeof createClient>>, clientId: string) {
   const days = 14
   const now = new Date()
   const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1))
 
-  let q = supabase
+  const { data: calls } = await supabase
     .from('calls')
     .select('created_at')
+    .eq('client_id', clientId)
     .gte('created_at', startDate.toISOString())
     .neq('status', 'in_progress')
-  if (clientId) q = q.eq('client_id', clientId)
 
-  const { data: calls } = await q
   const countsByDate = new Map<string, number>()
   for (const call of calls ?? []) {
     const d = new Date(call.created_at)
@@ -90,254 +75,361 @@ async function getCallVolumeData(supabase: Awaited<ReturnType<typeof createClien
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+  const ctx = await getUserContext()
+  const clientId = ctx?.clientId ?? ''
+  const ownerName = ctx?.ownerName ?? ctx?.profile?.display_name ?? ctx?.email ?? 'there'
+  const firstName = ownerName.split(' ')[0]
+  const agentName = ctx?.agentName ?? 'Your receptionist'
 
-  // Fetch recent calls with client name join
-  const { data: recentCalls } = await supabase
-    .from('calls')
-    .select('*, clients(name)')
-    .neq('status', 'in_progress')
-    .order('created_at', { ascending: false })
-    .limit(10)
+  // Week start (Monday)
+  const now = new Date()
+  const dayOfWeek = now.getDay()
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
+  weekStart.setHours(0, 0, 0, 0)
+  const weekStartISO = weekStart.toISOString()
 
-  const calls = (recentCalls ?? []) as (Call & { clients: { name: string } | null })[]
+  // Parallel data fetching
+  const [
+    { count: callsThisWeek },
+    { count: newLeadsCount },
+    { data: durationData },
+    { count: callbacksDue },
+    { data: recentCalls },
+    { data: newLeads },
+    { count: kbCount },
+    { data: lastCallData },
+    chartData,
+    { count: totalContacts },
+    { count: websiteVisits },
+    { count: knowledgeGaps },
+    { count: formSubmissions },
+  ] = await Promise.all([
+    // Calls this week
+    supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .gte('created_at', weekStartISO)
+      .neq('status', 'in_progress'),
+    // New leads this week
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('status', 'new')
+      .gte('created_at', weekStartISO),
+    // Avg duration this week
+    supabase
+      .from('calls')
+      .select('duration_seconds')
+      .eq('client_id', clientId)
+      .gte('created_at', weekStartISO)
+      .neq('status', 'in_progress')
+      .not('duration_seconds', 'is', null),
+    // Callbacks due
+    supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('callback_promised', true)
+      .eq('callback_completed', false),
+    // Recent calls (last 5)
+    supabase
+      .from('calls')
+      .select('id, caller_name, caller_number, sentiment, duration_seconds, summary, created_at, callback_promised, callback_completed')
+      .eq('client_id', clientId)
+      .neq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    // New leads (last 5)
+    supabase
+      .from('leads')
+      .select('id, name, phone, urgency, status, service_interested, created_at')
+      .eq('client_id', clientId)
+      .eq('status', 'new')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    // KB count
+    supabase
+      .from('knowledge_base')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('is_active', true),
+    // Last call
+    supabase
+      .from('calls')
+      .select('created_at')
+      .eq('client_id', clientId)
+      .neq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    // Chart data
+    getCallVolumeData(supabase, clientId),
+    // Total contacts (confirmed)
+    supabase
+      .from('contacts')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('status', 'confirmed'),
+    // Website visits this week (distinct visitors)
+    supabase
+      .from('website_analytics')
+      .select('visitor_id', { count: 'exact', head: false })
+      .eq('client_id', clientId)
+      .eq('event_type', 'page_view')
+      .gte('created_at', weekStartISO),
+    // Knowledge gaps (pending learning proposals)
+    supabase
+      .from('learning_proposals')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('status', 'pending'),
+    // Form submissions this week
+    supabase
+      .from('website_analytics')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('event_type', 'form_submission')
+      .gte('created_at', weekStartISO),
+  ])
 
-  // Fetch hot leads — high/urgent urgency, new/contacted status, top 5 by lead_score
-  const { data: hotLeadsData } = await supabase
-    .from('leads')
-    .select('*, calls(lead_score), clients(name)')
-    .in('urgency', ['high', 'urgent'])
-    .in('status', ['new', 'contacted'])
-    .order('created_at', { ascending: false })
-    .limit(5)
+  const avgDuration =
+    durationData && durationData.length > 0
+      ? Math.round(
+          durationData.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0) / durationData.length
+        )
+      : 0
 
-  const hotLeads = (hotLeadsData ?? []) as (Lead & {
-    calls: { lead_score: number | null } | null
-    clients: { name: string } | null
-  })[]
+  const calls = recentCalls ?? []
+  const leads = newLeads ?? []
+  const lastCall = lastCallData?.[0]
+  const hasCallbacks = (callbacksDue ?? 0) > 0
 
-  // Call volume chart data
-  const chartData = await getCallVolumeData(supabase)
+  // Compute distinct website visitors from the returned data
+  // The query returns visitor_id rows — we just use count since head: true won't give distinct
+  const websiteVisitorCount = websiteVisits ?? 0
+  const gapCount = knowledgeGaps ?? 0
+  const formCount = formSubmissions ?? 0
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Command Center</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Monitor your AI receptionist activity
+    <div className="p-4 md:p-8 bg-[#fafafa] min-h-full">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-[#111]" suppressHydrationWarning>
+          {getGreeting()}, {firstName}
+        </h1>
+        <p className="text-sm text-[#777] mt-1">
+          Here&apos;s what {agentName} has been doing for your business.
         </p>
       </div>
 
-      {/* Health overview — first thing you see */}
-      <HealthOverview />
-
-      {/* Real-time call/lead alerts */}
-      <RealtimeCallAlerts />
-
-      {/* System health — hidden when all clear */}
-      <SystemHealth />
-
-      {/* Analytics stats — server-side queries */}
-      <div className="mb-8">
-        <Analytics />
+      {/* Stat Cards — Row 1 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <StatCard icon={<Phone size={18} className="text-[#999]" />} label="Calls This Week" value={callsThisWeek ?? 0} href="/calls" />
+        <StatCard icon={<Target size={18} className="text-[#999]" />} label="New Leads" value={newLeadsCount ?? 0} href="/leads" />
+        <StatCard icon={<Clock size={18} className="text-[#999]" />} label="Avg Duration" value={formatDuration(avgDuration)} href="/calls" />
+        <StatCard
+          icon={<ClipboardList size={18} className="text-[#999]" />}
+          label="Callbacks Due"
+          value={callbacksDue ?? 0}
+          highlight={hasCallbacks}
+          subtitle={hasCallbacks ? 'Needs follow-up' : undefined}
+          href="/calls?filter=callback"
+        />
       </div>
 
-      {/* Call volume chart */}
+      {/* Stat Cards — Row 2 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard icon={<Users size={18} className="text-[#999]" />} label="Total Contacts" value={totalContacts ?? 0} href="/crm" />
+        <StatCard icon={<Globe size={18} className="text-[#999]" />} label="Website Visits" value={websiteVisitorCount} href="/website-analytics" />
+        <StatCard
+          icon={<Lightbulb size={18} className="text-[#999]" />}
+          label="Knowledge Gaps"
+          value={gapCount === 0 ? 'All clear' : gapCount}
+          href="/learned"
+          allClear={gapCount === 0}
+        />
+        <StatCard icon={<FileText size={18} className="text-[#999]" />} label="Form Submissions" value={formCount} href="/website-analytics" />
+      </div>
+
+      {/* Call Volume Chart */}
       <div className="mb-8">
         <CallVolumeChart data={chartData} />
       </div>
 
-      {/* Quick Links */}
-      <div className="mb-6 md:mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <Link
-          href="/clients"
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-gray-300 hover:bg-gray-50 transition-colors"
-        >
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Clients</p>
-            <p className="text-xs text-gray-500 mt-0.5">Manage businesses</p>
-          </div>
-          <svg
-            className="h-5 w-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </Link>
-
-        <Link
-          href="/calls"
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-gray-300 hover:bg-gray-50 transition-colors"
-        >
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Calls</p>
-            <p className="text-xs text-gray-500 mt-0.5">View call log</p>
-          </div>
-          <svg
-            className="h-5 w-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </Link>
-
-        <Link
-          href="/leads"
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-4 hover:border-gray-300 hover:bg-gray-50 transition-colors"
-        >
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Leads</p>
-            <p className="text-xs text-gray-500 mt-0.5">Track pipeline</p>
-          </div>
-          <svg
-            className="h-5 w-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </Link>
-      </div>
-
-      {/* Recent calls */}
-      <div className="bg-white rounded-lg border border-gray-200 mb-8">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Recent Calls</h2>
-          <Link
-            href="/calls"
-            className="text-sm text-gray-900 hover:underline"
-          >
-            View all
-          </Link>
-        </div>
-
-        {calls.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-              />
-            </svg>
-            <p className="mt-3 text-sm text-gray-500">No calls yet</p>
-            <p className="text-xs text-gray-400 mt-1">
-              Calls will appear here once Retell AI is connected
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {calls.map((call) => (
-              <li key={call.id} className="px-6 py-4 flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {call.caller_name ?? formatPhone(call.caller_number)}
-                    </p>
-                    {call.clients?.name && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 font-medium">
-                        {call.clients.name}
-                      </span>
-                    )}
-                    {sentimentBadge(call.sentiment)}
-                    {call.lead_score != null && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 font-medium">
-                        Score {call.lead_score}/10
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs text-gray-400 truncate">
-                    {call.summary ?? 'No summary yet'}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-gray-500">
-                    {formatDuration(call.duration_seconds)}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {new Date(call.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Hot Leads */}
-      {hotLeads.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">Hot Leads</h2>
-            <Link
-              href="/leads"
-              className="text-sm text-gray-900 hover:underline"
-            >
-              View all leads
+      {/* Two-column: Recent Calls + New Leads */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Recent Calls */}
+        <div className="bg-white rounded-xl border border-[#e5e7eb]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[#111]">Recent Calls</h2>
+            <Link href="/calls" className="text-sm text-[#777] hover:text-[#111] transition-colors">
+              View all &rarr;
             </Link>
           </div>
-          <ul className="divide-y divide-gray-100">
-            {hotLeads.map((lead) => (
-              <li key={lead.id} className="px-6 py-4 flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {lead.name ?? formatPhone(lead.phone)}
-                    </p>
-                    {lead.clients?.name && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 font-medium">
-                        {lead.clients.name}
-                      </span>
-                    )}
-                    {urgencyBadge(lead.urgency)}
-                    {lead.calls?.lead_score != null && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 font-medium">
-                        Score {lead.calls.lead_score}/10
-                      </span>
-                    )}
+          {calls.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <Phone size={28} className="text-[#ccc] mx-auto mb-3" />
+              <p className="text-sm text-[#777]">No calls yet</p>
+              <p className="text-xs text-[#999] mt-1">{agentName} will log every call automatically.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {calls.map((call) => (
+                <li key={call.id} className="px-5 py-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-sm font-medium text-[#111] truncate">
+                        {call.caller_name ?? call.caller_number ?? 'Unknown'}
+                      </p>
+                      {call.sentiment && (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${sentimentColor(call.sentiment)} hidden sm:inline-flex`}>
+                          {call.sentiment}
+                        </span>
+                      )}
+                      {call.callback_promised && !call.callback_completed && (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 hidden sm:inline-flex">
+                          Callback requested
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-[#999] shrink-0">
+                      {formatDuration(call.duration_seconds)}
+                    </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-gray-400 truncate">
-                    {lead.service_interested ?? 'No service specified'}
+                  {call.summary && (
+                    <p className="mt-1 text-xs text-[#777] line-clamp-2">{call.summary}</p>
+                  )}
+                  <p className="mt-1 text-[10px] text-[#999]" suppressHydrationWarning>
+                    {new Date(call.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                   </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <Link
-                    href={`/clients/${lead.client_id}/leads`}
-                    className="text-xs text-gray-900 hover:underline"
-                  >
-                    View
-                  </Link>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
+
+        {/* New Leads */}
+        <div className="bg-white rounded-xl border border-[#e5e7eb]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[#111]">New Leads</h2>
+            <Link href="/leads" className="text-sm text-[#777] hover:text-[#111] transition-colors">
+              View all &rarr;
+            </Link>
+          </div>
+          {leads.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <Target size={28} className="text-[#ccc] mx-auto mb-3" />
+              <p className="text-sm text-[#777]">No new leads yet</p>
+              <p className="text-xs text-[#999] mt-1">{agentName} will capture leads from every call.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {leads.map((lead) => (
+                <li key={lead.id} className="px-5 py-3.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${urgencyDot(lead.urgency)}`} />
+                    <p className="text-sm font-medium text-[#111] truncate">
+                      {lead.name ?? lead.phone ?? 'Unknown'}
+                    </p>
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-50 text-green-700 uppercase">
+                      New
+                    </span>
+                  </div>
+                  {lead.service_interested && (
+                    <p className="mt-1 text-xs text-[#777] ml-4">
+                      Interested in: {lead.service_interested}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[10px] text-[#999] ml-4" suppressHydrationWarning>
+                    {new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Links */}
+      <div className="mb-8">
+        <h2 className="text-base font-semibold text-[#111] mb-3">Quick Links</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <QuickLinkCard href="/crm" icon={<Users size={20} className="text-[#777]" />} label="Manage Contacts" />
+          <QuickLinkCard href="/knowledge-base" icon={<BookOpen size={20} className="text-[#777]" />} label="Knowledge Base" />
+          <QuickLinkCard href="/website-analytics" icon={<Globe size={20} className="text-[#777]" />} label="Website Analytics" />
+          <QuickLinkCard href="/settings" icon={<Settings size={20} className="text-[#777]" />} label="Settings" />
+        </div>
+      </div>
+
+      {/* Agent Status Bar */}
+      <div className="bg-white rounded-xl border border-[#e5e7eb] px-5 py-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm text-[#111] font-medium">
+              {lastCall
+                ? `${agentName} is active and answering your calls`
+                : `${agentName} is active and ready for your first call`}
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-[#999]">
+            <span>{kbCount ?? 0} knowledge base entries</span>
+            {lastCall && (
+              <span suppressHydrationWarning>Last call {timeAgo(lastCall.created_at)}</span>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
+  )
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  highlight,
+  subtitle,
+  href,
+  allClear,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string | number
+  highlight?: boolean
+  subtitle?: string
+  href: string
+  allClear?: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      className={`bg-white rounded-xl border p-4 relative block cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] ${
+        highlight ? 'border-amber-300' : 'border-[#e5e7eb]'
+      }`}
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+    >
+      <span className="absolute top-3 right-3">{icon}</span>
+      <p className="text-xs text-[#777] mb-1">{label}</p>
+      <p className={`text-[28px] font-bold leading-tight ${allClear ? 'text-green-600 text-xl' : 'text-[#111]'}`}>{value}</p>
+      {subtitle && (
+        <p className="text-[10px] text-amber-600 font-medium mt-1">{subtitle}</p>
+      )}
+    </Link>
+  )
+}
+
+function QuickLinkCard({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="bg-white rounded-xl border border-[#e5e7eb] p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+    >
+      {icon}
+      <span className="text-sm font-medium text-[#333]">{label}</span>
+    </Link>
   )
 }

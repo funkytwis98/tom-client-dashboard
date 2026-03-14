@@ -57,7 +57,7 @@ function mockScoreResponse(score: string | number) {
 // ---------------------------------------------------------------------------
 
 const SUCCESSFUL_CALL_TRANSCRIPT = `
-Agent: Thanks for calling Interstate Tires, this is Sarah. How can I help you today?
+Agent: Thanks for calling Interstate Tires, this is Tom. How can I help you today?
 User: Hi, I need a tire rotation.
 Agent: I'd be happy to help with that. Can I get your name?
 User: Mike Johnson.

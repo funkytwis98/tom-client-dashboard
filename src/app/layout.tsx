@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tom Agency — Business Dashboard",
-  description: "Tom Agency AI-powered business management dashboard",
+  title: "Business Dashboard",
+  description: "AI-powered business management dashboard",
 };
 
 export default function RootLayout({

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { Client } from '@/types/domain'
 import { createRetellAgent } from '@/lib/retell/agent-builder'
 import { getStripeClient } from '@/lib/stripe/client'
+import { DEFAULT_TASK_FREQUENCIES, TASK_CAPABILITY_REQUIREMENTS, TIER_CAPABILITIES } from '@/lib/brain/constants'
 
 const NewClientSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(200),
@@ -18,7 +19,7 @@ const NewClientSchema = z.object({
   owner_phone: z.string().min(1, 'Owner phone is required').max(30),
   owner_email: z.string().email().max(200).optional().or(z.literal('')),
   timezone: z.string().default('America/New_York'),
-  subscription_tier: z.enum(['standard', 'premium', 'enterprise']).default('standard'),
+  subscription_tier: z.enum(['website', 'receptionist', 'social', 'complete', 'the_works', 'free']).default('free'),
   phone_number: z.string().max(30).optional().or(z.literal('')),
 })
 
@@ -87,8 +88,8 @@ const UpdateClientSchema = z.object({
   owner_phone: z.string().min(1, 'Owner phone is required').max(30),
   owner_email: z.string().email().max(200).optional().or(z.literal('')),
   timezone: z.string().default('America/New_York'),
-  subscription_tier: z.enum(['standard', 'premium', 'enterprise']).default('standard'),
-  subscription_status: z.enum(['active', 'paused', 'cancelled']).default('active'),
+  subscription_tier: z.enum(['website', 'receptionist', 'social', 'complete', 'the_works', 'free']).default('free'),
+  subscription_status: z.enum(['active', 'paused', 'cancelled', 'past_due']).default('active'),
   phone_number: z.string().max(30).optional().or(z.literal('')),
   retell_agent_id: z.string().max(200).optional().or(z.literal('')),
 })
@@ -159,7 +160,7 @@ const OnboardSchema = z.object({
   owner_phone: z.string().min(1, 'Owner phone is required').max(30),
   owner_email: z.string().email().max(200).optional().or(z.literal('')),
   timezone: z.string().default('America/New_York'),
-  subscription_tier: z.enum(['standard', 'premium', 'enterprise']).default('standard'),
+  subscription_tier: z.enum(['website', 'receptionist', 'social', 'complete', 'the_works', 'free']).default('free'),
   // Step 2: AI Receptionist
   agent_name: z.string().min(1).max(100).default('receptionist'),
   voice_id: z.string().min(1, 'Voice is required'),
@@ -269,7 +270,28 @@ export async function onboardClient(
     }
   }
 
-  // 5. Create Retell agent + phone number
+  // 5. Seed default task_runs for brain library
+  const tierCaps = TIER_CAPABILITIES[parsed.subscription_tier] ?? []
+  const taskEntries = Object.entries(DEFAULT_TASK_FREQUENCIES)
+    .filter(([taskType]) => {
+      const requiredCap = TASK_CAPABILITY_REQUIREMENTS[taskType]
+      return !requiredCap || tierCaps.includes(requiredCap)
+    })
+    .map(([taskType, freq]) => ({
+      client_id: clientId,
+      task_type: taskType,
+      frequency_minutes: freq,
+      enabled: true,
+    }))
+
+  if (taskEntries.length > 0) {
+    const { error: taskError } = await supabase.from('task_runs').insert(taskEntries)
+    if (taskError) {
+      console.error('[onboard] task_runs insert failed:', taskError)
+    }
+  }
+
+  // 6. Create Retell agent + phone number
   let retellError: string | null = null
   try {
     await createRetellAgent(

@@ -22,8 +22,8 @@ export interface Client {
   address: Address | null
   website_domain: string | null
   settings: ClientSettings
-  subscription_tier: 'standard' | 'premium' | 'enterprise'
-  subscription_status: 'active' | 'paused' | 'cancelled'
+  subscription_tier: 'website' | 'receptionist' | 'social' | 'complete' | 'the_works' | 'free'
+  subscription_status: 'active' | 'paused' | 'cancelled' | 'past_due'
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
   created_at: string
@@ -69,6 +69,11 @@ export interface KnowledgeEntry {
   content: string
   priority: number
   is_active: boolean
+  type: 'fact' | 'behavior' | 'policy'
+  usage_count: number
+  last_used_at: string | null
+  guardrails: string[] | null
+  capability_overrides: Record<string, string> | null
   created_at: string
   updated_at: string
 }
@@ -87,6 +92,9 @@ export interface Call {
   recording_url: string | null
   sentiment: 'positive' | 'neutral' | 'negative' | null
   lead_score: number | null
+  callback_promised: boolean
+  callback_completed: boolean
+  callback_reminder_sent: boolean
   call_metadata: Record<string, unknown>
   created_at: string
 }
@@ -102,8 +110,20 @@ export interface Lead {
   notes: string | null
   urgency: 'low' | 'medium' | 'high' | 'urgent'
   status: 'new' | 'contacted' | 'booked' | 'completed' | 'lost'
+  source: 'call' | 'website'
   follow_up_at: string | null
   owner_notified: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface WebsiteRequest {
+  id: string
+  client_id: string
+  request_type: 'update' | 'bug' | 'suggestion' | 'general'
+  subject: string
+  message: string
+  status: 'pending' | 'in_progress' | 'completed'
   created_at: string
   updated_at: string
 }
@@ -205,4 +225,122 @@ export interface LeadWithCall extends Lead {
 export interface CustomerWithCalls extends Customer {
   calls?: Call[]
   leads?: Lead[]
+}
+
+// Brain Library types
+
+export interface BrainReflection {
+  id: string
+  client_id: string
+  capability: string
+  confidence_score: number
+  knowledge_gaps: string[]
+  knowledge_used: string[]
+  caller_sentiment: string | null
+  suggested_knowledge: string[]
+  pattern_noticed: string | null
+  interaction_summary: string | null
+  trigger_type: string
+  processed: boolean
+  created_at: string
+}
+
+export interface LearningProposal {
+  id: string
+  client_id: string
+  proposal_type: string
+  title: string
+  description: string | null
+  proposed_entry: Record<string, unknown> | null
+  source_reflection_ids: string[]
+  status: 'pending' | 'approved' | 'dismissed'
+  dismissed_hash: string | null
+  created_at: string
+}
+
+export interface UsageLogEntry {
+  id: string
+  client_id: string
+  capability: string
+  model: string
+  input_tokens: number
+  output_tokens: number
+  estimated_cost: number
+  trigger_type: string
+  created_at: string
+}
+
+export interface TaskRun {
+  id: string
+  client_id: string
+  task_type: string
+  last_run_at: string | null
+  frequency_minutes: number
+  enabled: boolean
+  created_at: string
+}
+
+export interface ContactRecord {
+  id: string
+  client_id: string
+  phone: string
+  name: string | null
+  email: string
+  vehicle_make: string
+  vehicle_model: string
+  vehicle_year: string
+  tire_size: string
+  preferred_contact: string
+  birthday: string
+  notes: string
+  status: 'confirmed' | 'unconfirmed'
+  interaction_count: number
+  last_interaction_at: string | null
+  last_interaction_summary: string | null
+  first_contact_at: string
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface ContactCustomField {
+  id: string
+  client_id: string
+  field_name: string
+  field_type: 'text' | 'number' | 'date' | 'select'
+  section_name: string
+  sort_order: number
+  is_required: boolean
+  created_at: string
+}
+
+export interface ContactCustomValue {
+  id: string
+  contact_id: string
+  field_id: string
+  value: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ContactNote {
+  id: string
+  contact_id: string
+  client_id: string
+  text: string
+  author: string
+  created_at: string
+}
+
+export interface UnansweredQuestion {
+  id: string
+  client_id: string
+  call_id: string | null
+  question: string
+  context: string | null
+  status: 'pending' | 'answered' | 'dismissed'
+  answer: string | null
+  added_to_kb: boolean
+  kb_entry_id: string | null
+  created_at: string
 }

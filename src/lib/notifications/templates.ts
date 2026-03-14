@@ -1,75 +1,69 @@
 import type { NotificationPayload, DailySummary } from '@/types/api'
 
 /**
- * Formats an urgent lead SMS alert to the business owner.
- * Score 9-10 = urgent. Keep under 300 chars.
+ * Formats a hot lead SMS (lead_score >= 7).
+ * Can exceed 160 chars — high-value leads warrant a longer message.
  */
-export function formatUrgentLeadSMS(payload: NotificationPayload): string {
-  const name = payload.caller_name ?? 'Unknown caller'
-  const service = payload.service ?? 'unknown service'
-  const score = payload.lead_score ?? '?'
-  const phone = payload.caller_number ?? 'no number'
+export function formatHotLeadSMS(payload: NotificationPayload): string {
+  const name = payload.caller_name ?? payload.caller_number ?? 'Unknown caller'
+  const service = payload.service ? ` called about ${payload.service}` : ''
+  const score = payload.lead_score != null ? `\nScore: ${payload.lead_score}/10. ` : '\n'
+  const summary = payload.summary ?? 'No details captured.'
+  const callback = payload.caller_number ? `\nCall back ASAP: ${payload.caller_number}` : ''
 
-  const parts = [`URGENT: ${name} called about ${service}. Score: ${score}/10. Call back: ${phone}.`]
-
-  if (payload.summary) {
-    // Truncate summary to keep total under 300 chars
-    const prefix = parts[0]
-    const remaining = 295 - prefix.length - 1  // 1 for space
-    if (remaining > 20) {
-      parts.push(payload.summary.slice(0, remaining))
-    }
-  }
-
-  return parts.join(' ')
+  const msg = `🔥 Hot lead! ${name}${service}.${score}${summary}${callback}`
+  return msg.slice(0, 320)
 }
 
 /**
- * Formats a new lead SMS alert to the business owner.
- * Standard (non-urgent) lead notification. Keep under 300 chars.
+ * Formats a medium-score lead SMS (lead_score 4-6).
+ * Aims for single SMS segment (~160 chars).
  */
-export function formatNewLeadSMS(payload: NotificationPayload): string {
-  const name = payload.caller_name ?? 'Someone'
-  const service = payload.service ?? 'your services'
-  const score = payload.lead_score != null ? ` Score: ${payload.lead_score}/10.` : ''
-  const phone = payload.caller_number ? ` Callback: ${payload.caller_number}.` : ''
+export function formatMediumLeadSMS(payload: NotificationPayload): string {
+  const name = payload.caller_name ?? payload.caller_number ?? 'Someone'
+  const service = payload.service ? ` about ${payload.service}` : ''
+  const score = payload.lead_score != null ? `\nScore: ${payload.lead_score}/10. ` : '\n'
+  const summary = payload.summary ?? ''
 
-  const parts = [`New lead: ${name} called about ${service}.${score}${phone}`]
+  const prefix = `📞 New call from ${name}${service}.${score}`
+  const remaining = 300 - prefix.length
+  const truncatedSummary = summary && remaining > 10 ? summary.slice(0, remaining) : ''
 
-  if (payload.summary) {
-    const prefix = parts[0]
-    const remaining = 295 - prefix.length - 1
-    if (remaining > 20) {
-      parts.push(payload.summary.slice(0, remaining))
-    }
-  }
-
-  return parts.join(' ')
+  return (prefix + truncatedSummary).trim()
 }
 
 /**
- * Formats a missed call SMS notification to the business owner.
- * Includes caller number, time, and optional summary.
+ * Formats a basic call SMS (low score or no lead data).
+ * Minimal info, stays under 160 chars.
  */
-export function formatMissedCallSMS(payload: NotificationPayload): string {
+export function formatBasicCallSMS(payload: NotificationPayload): string {
   const phone = payload.caller_number ?? 'unknown number'
   const time = new Date().toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   })
+  const summary = payload.summary ?? 'No details captured.'
 
-  const parts = [`Missed call from ${phone} at ${time}.`]
+  const msg = `📞 Call from ${phone} at ${time}.\n${summary}`
+  return msg.slice(0, 300)
+}
 
-  if (payload.summary) {
-    const prefix = parts[0]
-    const remaining = 295 - prefix.length - 1
-    if (remaining > 20) {
-      parts.push(payload.summary.slice(0, remaining))
-    }
-  }
+/**
+ * Formats an after-hours call SMS.
+ * Tells the owner the caller was informed they'd get a callback.
+ */
+export function formatAfterHoursSMS(payload: NotificationPayload): string {
+  const name = payload.caller_name ?? payload.caller_number ?? 'Unknown caller'
+  const service = payload.service ? `: ${payload.service}` : ''
+  const summary = payload.summary ?? ''
+  const callbackNote = "They know you'll call back during business hours."
 
-  return parts.join(' ')
+  const prefix = `📞 After-hours call from ${name}${service}.\n`
+  const remaining = 300 - prefix.length - callbackNote.length - 2
+  const truncatedSummary = summary && remaining > 10 ? summary.slice(0, remaining) + '. ' : ''
+
+  return `${prefix}${truncatedSummary}${callbackNote}`
 }
 
 /**

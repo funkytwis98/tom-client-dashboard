@@ -137,7 +137,7 @@ export function AgentConfigForm({ clientId, initialConfig }: AgentConfigFormProp
               </label>
               <input
                 type="text"
-                placeholder="e.g., Sarah"
+                placeholder="e.g., Tom"
                 className={inputCls}
                 {...field('agent_name')}
               />
@@ -188,7 +188,7 @@ export function AgentConfigForm({ clientId, initialConfig }: AgentConfigFormProp
               </label>
               <textarea
                 rows={2}
-                placeholder='e.g., "Thanks for calling Interstate Tires, this is Sarah, how can I help you today?"'
+                placeholder='e.g., "Thanks for calling Interstate Tires, this is Tom, how can I help you today?"'
                 className={inputCls}
                 {...field('greeting')}
               />

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getStripeClient } from '@/lib/stripe/client'
-import { TIERS } from '@/lib/stripe/products'
+import { TIERS, type SubscriptionTier } from '@/lib/stripe/products'
 import { z } from 'zod'
 
 // --- Helpers ---
@@ -80,16 +80,19 @@ export async function createStripeCustomer(clientId: string) {
   return { success: true, stripeCustomerId: customer.id }
 }
 
-const CreateSubscriptionSchema = z.object({
+const VALID_TIERS = ['website', 'receptionist', 'social', 'complete', 'the_works'] as const
+
+const CreateCheckoutSchema = z.object({
   clientId: z.string().uuid(),
-  tier: z.enum(['standard', 'premium', 'enterprise']),
+  tier: z.enum(VALID_TIERS),
 })
 
 /**
- * Creates a Stripe subscription for a client (invoice-based, not card-on-file).
+ * Creates a Stripe Checkout Session for a new subscription.
+ * For tiers with one-time fees (website, the_works), adds both one-time and recurring line items.
  */
-export async function createSubscription(clientId: string, tier: 'standard' | 'premium' | 'enterprise') {
-  CreateSubscriptionSchema.parse({ clientId, tier })
+export async function createCheckoutSession(clientId: string, tier: Exclude<SubscriptionTier, 'free'>) {
+  CreateCheckoutSchema.parse({ clientId, tier })
   const { supabase, org } = await getAuthenticatedOrg()
   const client = await getOwnedClient(supabase, org.id, clientId)
 
@@ -97,50 +100,47 @@ export async function createSubscription(clientId: string, tier: 'standard' | 'p
     throw new Error('Client does not have a Stripe customer. Create one first.')
   }
 
-  if (client.stripe_subscription_id) {
-    throw new Error('Client already has an active subscription. Update the tier instead.')
-  }
-
   const tierConfig = TIERS[tier]
   const stripe = getStripeClient()
 
-  const subscription = await stripe.subscriptions.create({
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set')
+
+  // Build line items
+  const lineItems: { price: string; quantity: number }[] = [
+    { price: tierConfig.stripeRecurringPriceId(), quantity: 1 },
+  ]
+
+  // Add one-time setup fee if applicable
+  const oneTimePriceId = tierConfig.stripeOneTimePriceId()
+  if (oneTimePriceId) {
+    lineItems.push({ price: oneTimePriceId, quantity: 1 })
+  }
+
+  const session = await stripe.checkout.sessions.create({
     customer: client.stripe_customer_id,
-    items: [{ price: tierConfig.stripePriceId() }],
-    collection_method: 'send_invoice',
-    days_until_due: 30,
+    mode: 'subscription',
+    line_items: lineItems,
+    success_url: `${appUrl}/clients/${clientId}/billing?checkout=success`,
+    cancel_url: `${appUrl}/clients/${clientId}/billing?checkout=cancelled`,
     metadata: {
       client_id: clientId,
+      tier,
     },
   })
 
-  const { error } = await supabase
-    .from('clients')
-    .update({
-      stripe_subscription_id: subscription.id,
-      subscription_tier: tier,
-      subscription_status: 'active',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', clientId)
-
-  if (error) throw new Error(error.message)
-
-  revalidatePath(`/clients/${clientId}/billing`)
-  revalidatePath(`/clients/${clientId}`)
-  revalidatePath('/billing')
-  return { success: true, subscriptionId: subscription.id }
+  return { success: true, checkoutUrl: session.url }
 }
 
 const UpdateTierSchema = z.object({
   clientId: z.string().uuid(),
-  newTier: z.enum(['standard', 'premium', 'enterprise']),
+  newTier: z.enum(VALID_TIERS),
 })
 
 /**
  * Changes the subscription tier by swapping the price item on the existing Stripe subscription.
  */
-export async function updateSubscriptionTier(clientId: string, newTier: 'standard' | 'premium' | 'enterprise') {
+export async function updateSubscriptionTier(clientId: string, newTier: Exclude<SubscriptionTier, 'free'>) {
   UpdateTierSchema.parse({ clientId, newTier })
   const { supabase, org } = await getAuthenticatedOrg()
   const client = await getOwnedClient(supabase, org.id, clientId)
@@ -163,7 +163,7 @@ export async function updateSubscriptionTier(clientId: string, newTier: 'standar
     items: [
       {
         id: currentItem.id,
-        price: tierConfig.stripePriceId(),
+        price: tierConfig.stripeRecurringPriceId(),
       },
     ],
   })
@@ -230,46 +230,13 @@ export async function getStripePortalUrl(clientId: string) {
   }
 
   const stripe = getStripeClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set')
+
   const session = await stripe.billingPortal.sessions.create({
     customer: client.stripe_customer_id,
-    return_url: (() => {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL
-      if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set — required for Stripe billing portal redirect')
-      return `${appUrl}/clients/${clientId}/billing`
-    })(),
+    return_url: `${appUrl}/clients/${clientId}/billing`,
   })
 
   return { success: true, url: session.url }
-}
-
-/**
- * Creates and sends a one-off invoice for the current subscription.
- */
-export async function sendInvoice(clientId: string) {
-  ClientIdSchema.parse({ clientId })
-  const { supabase, org } = await getAuthenticatedOrg()
-  const client = await getOwnedClient(supabase, org.id, clientId)
-
-  if (!client.stripe_customer_id) {
-    throw new Error('Client does not have a Stripe customer.')
-  }
-
-  if (!client.stripe_subscription_id) {
-    throw new Error('Client does not have an active subscription.')
-  }
-
-  const stripe = getStripeClient()
-
-  // Create an invoice for the subscription's pending items and send it
-  const invoice = await stripe.invoices.create({
-    customer: client.stripe_customer_id,
-    subscription: client.stripe_subscription_id,
-    collection_method: 'send_invoice',
-    days_until_due: 30,
-  })
-
-  await stripe.invoices.sendInvoice(invoice.id)
-
-  revalidatePath(`/clients/${clientId}/billing`)
-  return { success: true, invoiceId: invoice.id }
 }

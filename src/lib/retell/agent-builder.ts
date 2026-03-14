@@ -22,7 +22,7 @@ const CATEGORY_ORDER = [
 export async function buildAgentPrompt(clientId: string): Promise<string> {
   const supabase = createServiceClient()
 
-  const [{ data: client }, { data: knowledge }, { data: playbooks }] = await Promise.all([
+  const [{ data: client }, { data: knowledge }, { data: playbooks }, { data: services }, { data: hours }] = await Promise.all([
     supabase.from('clients').select('*, agent_config(*)').eq('id', clientId).single(),
     supabase
       .from('knowledge_base')
@@ -36,6 +36,17 @@ export async function buildAgentPrompt(clientId: string): Promise<string> {
       .eq('client_id', clientId)
       .eq('is_active', true)
       .order('priority', { ascending: false }),
+    supabase
+      .from('services_pricing')
+      .select('service_name, price_text, notes')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+    supabase
+      .from('business_hours')
+      .select('day_of_week, is_open, open_time, close_time')
+      .eq('client_id', clientId)
+      .order('day_of_week', { ascending: true }),
   ])
 
   if (!client) throw new Error(`Client ${clientId} not found`)
@@ -57,15 +68,39 @@ export async function buildAgentPrompt(clientId: string): Promise<string> {
     updated_at: '',
   }
 
+  // Build structured services section from services_pricing table
+  let servicesSection = ''
+  if (services?.length) {
+    const lines = services.map((s: { service_name: string; price_text: string; notes: string }) => {
+      const note = s.notes ? ` (${s.notes})` : ''
+      return `- ${s.service_name}: ${s.price_text}${note}`
+    })
+    servicesSection = `## Services and Pricing\n${lines.join('\n')}`
+  }
+
+  // Build structured hours section from business_hours table
+  const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  let structuredHoursSection = ''
+  if (hours?.length) {
+    const lines = hours.map((h: { day_of_week: number; is_open: boolean; open_time: string; close_time: string }) => {
+      const day = DAY_NAMES[h.day_of_week] ?? `Day ${h.day_of_week}`
+      return h.is_open ? `${day}: ${h.open_time} - ${h.close_time}` : `${day}: Closed`
+    })
+    structuredHoursSection = `## Business Hours\n${lines.join('\n')}\n`
+  }
+
   // Group active knowledge entries by category (already ordered by priority from query)
+  // Filter out categories now handled by structured tables
   const grouped: Record<string, KnowledgeEntry[]> = {}
   for (const entry of (knowledge ?? []) as KnowledgeEntry[]) {
+    if (['services', 'pricing', 'hours'].includes(entry.category)) continue
     if (!grouped[entry.category]) grouped[entry.category] = []
     grouped[entry.category].push(entry)
   }
 
-  // Build knowledge sections in defined order
-  const knowledgeSections = CATEGORY_ORDER.filter((cat) => grouped[cat]?.length > 0)
+  // Build knowledge sections in defined order (excluding structured categories)
+  const knowledgeSections = CATEGORY_ORDER
+    .filter((cat) => !['services', 'pricing', 'hours'].includes(cat) && grouped[cat]?.length > 0)
     .map((cat) => {
       const entries = grouped[cat]
       const header = `## ${cat.charAt(0).toUpperCase() + cat.slice(1)}`
@@ -76,10 +111,10 @@ export async function buildAgentPrompt(clientId: string): Promise<string> {
     })
     .join('\n\n')
 
-  // Business hours section (omitted if not configured)
-  const hoursSection = client.business_hours
+  // Fall back to JSONB business_hours on clients table if no business_hours rows exist
+  const hoursSection = structuredHoursSection || (client.business_hours
     ? formatBusinessHours(client.business_hours as BusinessHours)
-    : ''
+    : '')
 
   // Escalation: use config value or fall back to default
   const escalation =
@@ -95,6 +130,7 @@ export async function buildAgentPrompt(clientId: string): Promise<string> {
     '## Greeting',
     `Always start the call with: "${config.greeting}"`,
     '',
+    servicesSection,
     knowledgeSections,
     hoursSection,
     '## Your Sales Approach',

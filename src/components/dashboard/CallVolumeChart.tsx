@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  Cell,
 } from 'recharts'
 
 interface CallVolumeChartProps {
@@ -15,13 +16,17 @@ interface CallVolumeChartProps {
 }
 
 export function CallVolumeChart({ data }: CallVolumeChartProps) {
+  // Show every ~3rd label to avoid crowding
+  const tickInterval = Math.max(1, Math.floor(data.length / 5))
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <h3 className="text-sm font-semibold text-gray-900 mb-4">
-        Call Volume — Last 14 Days
-      </h3>
+    <div className="bg-white rounded-xl border border-[#e5e7eb] p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-semibold text-[#111]">Call Volume</h3>
+        <span className="text-sm text-[#999]">Last 14 days</span>
+      </div>
       {data.every((d) => d.calls === 0) ? (
-        <div className="h-[220px] flex items-center justify-center text-sm text-gray-400">
+        <div className="h-[220px] flex items-center justify-center text-sm text-[#999]">
           No calls in the last 14 days
         </div>
       ) : (
@@ -30,13 +35,14 @@ export function CallVolumeChart({ data }: CallVolumeChartProps) {
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11, fill: '#9ca3af' }}
+              tick={{ fontSize: 11, fill: '#999' }}
               axisLine={false}
               tickLine={false}
+              interval={tickInterval}
             />
             <YAxis
               allowDecimals={false}
-              tick={{ fontSize: 11, fill: '#9ca3af' }}
+              tick={{ fontSize: 11, fill: '#999' }}
               axisLine={false}
               tickLine={false}
             />
@@ -52,7 +58,14 @@ export function CallVolumeChart({ data }: CallVolumeChartProps) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               labelFormatter={(label: any) => String(label)}
             />
-            <Bar dataKey="calls" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={32} />
+            <Bar dataKey="calls" radius={[4, 4, 0, 0]} maxBarSize={32}>
+              {data.map((entry, index) => (
+                <Cell
+                  key={index}
+                  fill={entry.calls > 0 ? '#FFD700' : '#1C1C1F'}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       )}

@@ -27,6 +27,7 @@ export async function updateLeadStatus(
 
   revalidatePath(`/clients/${clientId}/leads`)
   revalidatePath(`/clients/${clientId}/customers`)
+  revalidatePath('/leads')
   return { success: true }
 }
 

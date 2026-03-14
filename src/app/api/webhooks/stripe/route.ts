@@ -51,6 +51,9 @@ export async function POST(req: Request): Promise<Response> {
   // 4. Handle events
   try {
     switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase)
+        break
       case 'customer.subscription.created':
         await handleSubscriptionCreated(event.data.object as Stripe.Subscription, supabase)
         break
@@ -106,6 +109,30 @@ async function findClientByStripeCustomer(customerId: string, supabase: ServiceC
   return client
 }
 
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: ServiceClient) {
+  const clientId = session.metadata?.client_id
+  const tier = session.metadata?.tier
+
+  if (!clientId || !tier) {
+    console.warn('[stripe-webhook] Checkout session missing client_id or tier metadata')
+    return
+  }
+
+  const subscriptionId = typeof session.subscription === 'string'
+    ? session.subscription
+    : session.subscription?.id
+
+  await supabase
+    .from('clients')
+    .update({
+      stripe_subscription_id: subscriptionId ?? null,
+      subscription_tier: tier,
+      subscription_status: 'active',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', clientId)
+}
+
 async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: ServiceClient) {
   const customerId = typeof subscription.customer === 'string'
     ? subscription.customer
@@ -148,10 +175,12 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
   const tier = priceId ? getTierByPriceId(priceId) : null
 
   // Map Stripe status to our status
-  let status: 'active' | 'paused' | 'cancelled' = 'active'
+  let status: 'active' | 'paused' | 'cancelled' | 'past_due' = 'active'
   if (subscription.cancel_at_period_end) {
     status = 'cancelled'
-  } else if (subscription.status === 'past_due' || subscription.status === 'unpaid') {
+  } else if (subscription.status === 'past_due') {
+    status = 'past_due'
+  } else if (subscription.status === 'unpaid') {
     status = 'paused'
   } else if (subscription.status === 'canceled') {
     status = 'cancelled'
@@ -200,7 +229,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, supabase: ServiceClien
   if (!client) return
 
   // Reactivate after successful payment
-  if (client.subscription_status === 'paused') {
+  if (client.subscription_status === 'paused' || client.subscription_status === 'past_due') {
     await supabase
       .from('clients')
       .update({
@@ -224,14 +253,15 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: Ser
   await supabase
     .from('clients')
     .update({
-      subscription_status: 'paused',
+      subscription_status: 'past_due',
       updated_at: new Date().toISOString(),
     })
     .eq('id', client.id)
 
+  // Create alert visible in Command Center
   reportError({
     type: 'stripe_webhook',
-    message: `Invoice payment failed for client ${client.id}`,
+    message: `Payment failed for client ${client.id}`,
     clientId: client.id,
     context: {
       invoice_id: invoice.id,

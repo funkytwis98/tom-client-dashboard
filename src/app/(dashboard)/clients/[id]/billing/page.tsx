@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getClient } from '@/app/actions/clients'
 import { ClientBillingActions } from '@/components/dashboard/ClientBillingActions'
-import { TIERS } from '@/lib/stripe/products'
+import { TIERS, getTierPriceDisplay, type SubscriptionTier } from '@/lib/stripe/products'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -24,25 +24,30 @@ function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     active: 'bg-green-100 text-green-800',
     paused: 'bg-yellow-100 text-yellow-800',
+    past_due: 'bg-orange-100 text-orange-800',
     cancelled: 'bg-red-100 text-red-800',
+    free: 'bg-gray-100 text-gray-600',
   }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
-      {status}
+      {status === 'past_due' ? 'Past Due' : status}
     </span>
   )
 }
 
-function TierBadge({ tier }: { tier: string }) {
+function TierBadge({ tier }: { tier: SubscriptionTier }) {
+  const config = tier !== 'free' ? TIERS[tier] : null
   const colors: Record<string, string> = {
-    standard: 'bg-blue-100 text-blue-800',
-    premium: 'bg-purple-100 text-purple-800',
-    enterprise: 'bg-indigo-100 text-indigo-800',
+    website: 'bg-sky-100 text-sky-800',
+    receptionist: 'bg-blue-100 text-blue-800',
+    social: 'bg-violet-100 text-violet-800',
+    complete: 'bg-purple-100 text-purple-800',
+    the_works: 'bg-amber-100 text-amber-800',
+    free: 'bg-gray-100 text-gray-600',
   }
-  const config = TIERS[tier as keyof typeof TIERS]
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[tier] || 'bg-gray-100 text-gray-800'}`}>
-      {config?.name || tier}
+      {config?.name || 'Free'}
     </span>
   )
 }
@@ -51,8 +56,6 @@ export default async function ClientBillingPage({ params }: Props) {
   const { id } = await params
   const client = await getClient(id)
   if (!client) notFound()
-
-  const tierConfig = TIERS[client.subscription_tier]
 
   return (
     <div className="p-8">
@@ -97,7 +100,7 @@ export default async function ClientBillingPage({ params }: Props) {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Subscription</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div>
-            <p className="text-sm text-gray-500">Tier</p>
+            <p className="text-sm text-gray-500">Plan</p>
             <div className="mt-1">
               <TierBadge tier={client.subscription_tier} />
             </div>
@@ -105,7 +108,7 @@ export default async function ClientBillingPage({ params }: Props) {
           <div>
             <p className="text-sm text-gray-500">Price</p>
             <p className="mt-1 text-lg font-semibold text-gray-900">
-              ${tierConfig?.price ?? '—'}/mo
+              {getTierPriceDisplay(client.subscription_tier)}
             </p>
           </div>
           <div>

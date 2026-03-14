@@ -10,19 +10,39 @@ interface Props {
 
 export default async function KnowledgePage({ params }: Props) {
   const { id } = await params
-  const [client, supabase] = await Promise.all([
+  const supabase = await createClient()
+
+  const [client, entriesRes, servicesRes, hoursRes, agentRes] = await Promise.all([
     getClient(id),
-    createClient(),
+    supabase
+      .from('knowledge_base')
+      .select('*')
+      .eq('client_id', id)
+      .eq('is_active', true)
+      .in('category', ['faq', 'policies', 'promotions'])
+      .order('priority', { ascending: false }),
+    supabase
+      .from('services_pricing')
+      .select('*')
+      .eq('client_id', id)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+    supabase
+      .from('business_hours')
+      .select('*')
+      .eq('client_id', id)
+      .order('day_of_week', { ascending: true }),
+    supabase
+      .from('agent_config')
+      .select('agent_name')
+      .eq('client_id', id)
+      .single(),
   ])
 
-  const { data: entries } = await supabase
-    .from('knowledge_base')
-    .select('*')
-    .eq('client_id', id)
-    .order('priority', { ascending: false })
+  const agentName = agentRes.data?.agent_name ?? 'Your receptionist'
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-[#fafafa] min-h-screen">
       {/* Breadcrumb */}
       <nav className="mb-4 flex items-center gap-1.5 text-sm text-gray-500">
         <Link href="/clients" className="hover:text-gray-700">
@@ -37,17 +57,20 @@ export default async function KnowledgePage({ params }: Props) {
       </nav>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[#111]">
           Knowledge Base{client?.name ? ` — ${client.name}` : ''}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage the information your AI receptionist uses when answering calls.
+        <p className="mt-1 text-sm text-[#777]">
+          Everything {agentName} knows about your business. Keep this updated so {agentName} gives accurate answers.
         </p>
       </div>
 
       <KnowledgeEditor
         clientId={id}
-        initialEntries={(entries ?? []) as KnowledgeEntry[]}
+        agentName={agentName}
+        initialEntries={(entriesRes.data ?? []) as KnowledgeEntry[]}
+        initialServices={servicesRes.data ?? []}
+        initialHours={hoursRes.data ?? []}
       />
     </div>
   )

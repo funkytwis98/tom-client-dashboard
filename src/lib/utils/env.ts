@@ -32,9 +32,15 @@ export const env = {
   // Stripe
   stripeSecretKey: () => requireEnv('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: () => requireEnv('STRIPE_WEBHOOK_SECRET'),
-  stripePriceStandard: () => requireEnv('STRIPE_PRICE_STANDARD'),
-  stripePricePremium: () => requireEnv('STRIPE_PRICE_PREMIUM'),
-  stripePriceEnterprise: () => requireEnv('STRIPE_PRICE_ENTERPRISE'),
+  stripePublishableKey: () => requireEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY'),
+  // Stripe price IDs — 5-tier pricing model
+  stripePriceWebsiteMonthly: () => requireEnv('STRIPE_PRICE_WEBSITE_MONTHLY'),
+  stripePriceWebsiteSetup: () => requireEnv('STRIPE_PRICE_WEBSITE_SETUP'),
+  stripePriceReceptionist: () => requireEnv('STRIPE_PRICE_RECEPTIONIST'),
+  stripePriceSocial: () => requireEnv('STRIPE_PRICE_SOCIAL'),
+  stripePriceComplete: () => requireEnv('STRIPE_PRICE_COMPLETE'),
+  stripePriceTheWorksMonthly: () => requireEnv('STRIPE_PRICE_THE_WORKS_MONTHLY'),
+  stripePriceTheWorksSetup: () => requireEnv('STRIPE_PRICE_THE_WORKS_SETUP'),
 
   // Other
   revalidateSecret: () => requireEnv('REVALIDATE_SECRET'),

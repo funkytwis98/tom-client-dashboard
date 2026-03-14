@@ -1,6 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- TODO: re-enable signature verification
 import { env } from '@/lib/utils/env'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- TODO: re-enable signature verification
 import { verifyRetellSignature } from '@/lib/retell/webhook-verify'
 import { getClientByAgentId } from '@/lib/retell/client'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -13,6 +11,7 @@ import { reportError } from '@/lib/monitoring/report-error'
 import type { NotificationPayload } from '@/types/api'
 import type { ClientSettings } from '@/types/domain'
 import { rateLimit, rateLimitResponse } from '@/lib/middleware/rate-limit'
+import { generateProposalsForClient } from '@/lib/learned/generate-proposals'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/retell
@@ -28,15 +27,13 @@ export async function POST(req: Request): Promise<Response> {
   const body = await req.text()
   console.log('[retell-webhook] Received webhook, body length:', body.length)
 
-  // TODO: Re-enable signature verification once RETELL_API_KEY is confirmed correct
-  // 2. Verify Retell HMAC-SHA256 signature (TEMPORARILY DISABLED)
+  // 2. Verify Retell HMAC-SHA256 signature
   const signature = req.headers.get('x-retell-signature')
-  console.log('[retell-webhook] Signature present:', !!signature, '(verification SKIPPED)')
-  // if (!await verifyRetellSignature(body, signature, env.retellApiKey())) {
-  //   console.error('[retell-webhook] Signature verification FAILED. Signature:', signature?.substring(0, 20) + '...')
-  //   return Response.json({ error: 'Invalid signature' }, { status: 401 })
-  // }
-  // console.log('[retell-webhook] Signature verified OK')
+  if (!await verifyRetellSignature(body, signature, env.retellApiKey())) {
+    console.error('[retell-webhook] Signature verification FAILED')
+    return Response.json({ error: 'Invalid signature' }, { status: 401 })
+  }
+  console.log('[retell-webhook] Signature verified OK')
 
   // 3. Parse event
   let event: RetellWebhookEvent
@@ -154,19 +151,25 @@ async function handleCallEnded(
 
   console.log('[retell-webhook] handleCallEnded: client=', client.name, 'duration=', call.duration_ms, 'ms')
 
-  // Determine call status
+  // Determine call status based on Retell end_reason and transcript
   const afterHours = isAfterHours(
     client.business_hours,
     call.end_timestamp,
     client.timezone
   )
-  const isShortCall = call.duration_ms < 10000
+  const endReason = call.disconnection_reason
+  const hasTranscript = !!call.transcript && call.transcript.trim().length > 0
 
   let status: 'completed' | 'voicemail' | 'missed'
-  if (isShortCall) {
-    status = 'missed'
-  } else if (afterHours) {
+  if (hasTranscript) {
+    // If there's a transcript, a real conversation happened
+    status = 'completed'
+  } else if (endReason === 'voicemail' || endReason === 'voicemail_reached') {
     status = 'voicemail'
+  } else if (endReason === 'no_answer' || endReason === 'busy' || endReason === 'machine_detected') {
+    status = 'missed'
+  } else if (endReason === 'agent_hangup' || endReason === 'caller_hangup' || endReason === 'end_call_api') {
+    status = 'completed'
   } else {
     status = 'completed'
   }
@@ -254,6 +257,10 @@ async function handleCallEnded(
       if (result.reflection) {
         result.reflection.client_id = client.id
         writeReflection(result.reflection)
+        // Fire-and-forget: generate learning proposals from this reflection
+        generateProposalsForClient(client.id).catch(err =>
+          console.error('[retell-webhook] Proposal generation failed (non-blocking):', err)
+        )
       }
 
       // Update contact history
@@ -336,6 +343,45 @@ async function handleCallEnded(
       callId: callRecord?.id ?? undefined,
       context: { retell_call_id: call.call_id },
     })
+  }
+
+  // Auto-create or update contact for CRM
+  if (call.from_number) {
+    try {
+      const { data: existingContact } = await supabase
+        .from('contacts')
+        .select('id, interaction_count')
+        .eq('client_id', client.id)
+        .eq('phone', call.from_number)
+        .single()
+
+      if (existingContact) {
+        await supabase
+          .from('contacts')
+          .update({
+            interaction_count: (existingContact.interaction_count ?? 0) + 1,
+            last_interaction_at: new Date().toISOString(),
+            last_interaction_summary: callAnalysis?.summary ?? null,
+            ...(callAnalysis?.caller_name && !existingContact.interaction_count ? { name: callAnalysis.caller_name } : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingContact.id)
+      } else {
+        await supabase.from('contacts').insert({
+          client_id: client.id,
+          phone: call.from_number,
+          name: callAnalysis?.caller_name ?? null,
+          status: 'unconfirmed',
+          interaction_count: 1,
+          last_interaction_at: new Date().toISOString(),
+          last_interaction_summary: callAnalysis?.summary ?? null,
+          first_contact_at: new Date().toISOString(),
+          tags: [],
+        })
+      }
+    } catch (contactErr) {
+      console.error('[retell-webhook] Contact upsert for CRM failed:', contactErr)
+    }
   }
 
   // Notify business owner via SMS (respects notification settings)

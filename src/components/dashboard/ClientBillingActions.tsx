@@ -3,26 +3,28 @@
 import { useTransition, useState } from 'react'
 import {
   createStripeCustomer,
-  createSubscription,
+  createCheckoutSession,
   updateSubscriptionTier,
   cancelSubscription,
   getStripePortalUrl,
-  sendInvoice,
 } from '@/app/actions/billing'
+import { TIERS, getTierPriceDisplay, type SubscriptionTier } from '@/lib/stripe/products'
 
 interface Props {
   clientId: string
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
-  currentTier: 'standard' | 'premium' | 'enterprise'
+  currentTier: SubscriptionTier
   subscriptionStatus: string
 }
 
-const TIER_OPTIONS: { value: 'standard' | 'premium' | 'enterprise'; label: string; price: number }[] = [
-  { value: 'standard', label: 'Starter', price: 299 },
-  { value: 'premium', label: 'Professional', price: 499 },
-  { value: 'enterprise', label: 'Enterprise', price: 799 },
-]
+type PaidTier = Exclude<SubscriptionTier, 'free'>
+
+const TIER_OPTIONS: { value: PaidTier; label: string; price: string }[] = Object.values(TIERS).map((t) => ({
+  value: t.tier as PaidTier,
+  label: t.name,
+  price: getTierPriceDisplay(t.tier),
+}))
 
 export function ClientBillingActions({
   clientId,
@@ -33,7 +35,7 @@ export function ClientBillingActions({
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [selectedTier, setSelectedTier] = useState<'standard' | 'premium' | 'enterprise'>(currentTier)
+  const [selectedTier, setSelectedTier] = useState<PaidTier>(currentTier === 'free' ? 'receptionist' : currentTier as PaidTier)
   const [showChangeTier, setShowChangeTier] = useState(false)
 
   function handleAction(action: () => Promise<unknown>, successMsg: string) {
@@ -79,29 +81,39 @@ export function ClientBillingActions({
             </button>
           )}
 
-          {/* Step 2: Create Subscription (if customer exists but no subscription) */}
+          {/* Step 2: Create Subscription via Stripe Checkout */}
           {stripeCustomerId && !stripeSubscriptionId && (
             <div className="flex items-center gap-2">
               <select
                 value={selectedTier}
-                onChange={(e) => setSelectedTier(e.target.value as typeof selectedTier)}
+                onChange={(e) => setSelectedTier(e.target.value as PaidTier)}
                 className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               >
                 {TIER_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>
-                    {t.label} — ${t.price}/mo
+                    {t.label} — {t.price}
                   </option>
                 ))}
               </select>
               <button
-                onClick={() => handleAction(
-                  () => createSubscription(clientId, selectedTier),
-                  'Subscription created successfully.'
-                )}
+                onClick={() => {
+                  setMessage(null)
+                  startTransition(async () => {
+                    try {
+                      const result = await createCheckoutSession(clientId, selectedTier)
+                      if (result.checkoutUrl) {
+                        window.open(result.checkoutUrl, '_blank')
+                        setMessage({ type: 'success', text: 'Stripe Checkout opened in new tab.' })
+                      }
+                    } catch (err) {
+                      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to create checkout' })
+                    }
+                  })
+                }}
                 disabled={isPending}
                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isPending ? 'Creating...' : 'Create Subscription'}
+                {isPending ? 'Creating...' : 'Start Checkout'}
               </button>
             </div>
           )}
@@ -122,12 +134,12 @@ export function ClientBillingActions({
                 <div className="flex items-center gap-2">
                   <select
                     value={selectedTier}
-                    onChange={(e) => setSelectedTier(e.target.value as typeof selectedTier)}
+                    onChange={(e) => setSelectedTier(e.target.value as PaidTier)}
                     className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     {TIER_OPTIONS.filter((t) => t.value !== currentTier).map((t) => (
                       <option key={t.value} value={t.value}>
-                        {t.label} — ${t.price}/mo
+                        {t.label} — {t.price}
                       </option>
                     ))}
                   </select>
@@ -152,18 +164,6 @@ export function ClientBillingActions({
                   </button>
                 </div>
               )}
-
-              {/* Send Invoice */}
-              <button
-                onClick={() => handleAction(
-                  () => sendInvoice(clientId),
-                  'Invoice sent successfully.'
-                )}
-                disabled={isPending}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
-              >
-                {isPending ? 'Sending...' : 'Send Invoice'}
-              </button>
 
               {/* Cancel */}
               <button
@@ -200,7 +200,7 @@ export function ClientBillingActions({
                 disabled={isPending}
                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
               >
-                Open Stripe Portal
+                Manage Billing
               </button>
 
               <a

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { updateRetellAgent } from '@/lib/retell/agent-builder'
 import { reportError } from '@/lib/monitoring/report-error'
 import { z } from 'zod'
+import { cleanupStaleProposals } from '@/lib/learned/kb-cross-reference'
 
 /**
  * Fire-and-forget Retell sync — logs failures but never throws.
@@ -78,6 +79,7 @@ export async function saveKnowledgeEntry(formData: KnowledgeEntryInput) {
 
   revalidatePath(`/clients/${parsed.client_id}/knowledge`)
   syncRetellInBackground(parsed.client_id)
+  cleanupStaleProposals(parsed.client_id).catch(() => {})
   return { success: true, entry: data }
 }
 

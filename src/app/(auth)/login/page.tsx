@@ -30,17 +30,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Command Center</h1>
-            <p className="text-sm text-gray-500 mt-1">Sign in to manage your AI receptionist</p>
+    <div className="min-h-screen flex items-center justify-center bg-[#09090B]">
+      <div className="w-full max-w-md px-4">
+        <div className="bg-[#111113] rounded-xl border border-[#222] p-8">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-[#FFD700]">Tom Agency</h1>
+            <p className="text-sm text-[#777] mt-2">Sign in to your dashboard.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-[#999]">
                 Email
               </label>
               <input
@@ -50,13 +50,13 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                placeholder="admin@example.com"
+                className="w-full px-3 py-2.5 bg-[#09090B] border border-[#333] rounded-lg text-sm text-white placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#FFD700]/40 focus:border-[#FFD700]/50"
+                placeholder="you@example.com"
               />
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-[#999]">
                 Password
               </label>
               <input
@@ -66,28 +66,28 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="w-full px-3 py-2.5 bg-[#09090B] border border-[#333] rounded-lg text-sm text-white placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#FFD700]/40 focus:border-[#FFD700]/50"
                 placeholder="••••••••"
               />
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="bg-red-900/20 border border-red-800/50 rounded-lg px-3 py-2">
+                <p className="text-sm text-red-400">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gray-900 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-[#FFD700] text-[#09090B] py-2.5 px-4 rounded-lg text-sm font-semibold hover:bg-[#FFD700]/90 focus:outline-none focus:ring-2 focus:ring-[#FFD700]/50 focus:ring-offset-2 focus:ring-offset-[#111113] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
 
-          <p className="mt-6 text-xs text-gray-400 text-center">
-            No account? Create one in your Supabase dashboard under Authentication.
+          <p className="mt-6 text-xs text-[#555] text-center">
+            Contact your account manager for access.
           </p>
         </div>
       </div>

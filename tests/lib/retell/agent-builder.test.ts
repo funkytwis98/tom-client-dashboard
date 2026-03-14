@@ -44,8 +44,8 @@ const mockClient = {
   },
   agent_config: [
     {
-      agent_name: 'Sarah',
-      greeting: "Thanks for calling Interstate Tires, this is Sarah, how can I help you?",
+      agent_name: 'Tom',
+      greeting: "Thanks for calling Interstate Tires, this is Tom, how can I help you?",
       personality: 'friendly, professional, knowledgeable about tires',
       sales_style: 'consultative, not pushy',
       escalation_rules: 'If the caller is angry, say "Let me get the manager on the line for you."',
@@ -136,8 +136,8 @@ describe('buildAgentPrompt', () => {
 
     const prompt = await buildAgentPrompt('client-123')
 
-    expect(prompt).toContain('Sarah')
-    expect(prompt).toContain("Thanks for calling Interstate Tires, this is Sarah, how can I help you?")
+    expect(prompt).toContain('Tom')
+    expect(prompt).toContain("Thanks for calling Interstate Tires, this is Tom, how can I help you?")
   })
 
   it('includes personality in the prompt', async () => {
@@ -305,7 +305,7 @@ describe('updateRetellAgent', () => {
     expect(retellClient.agent.retrieve).toHaveBeenCalledWith('agent-abc123')
     expect(retellClient.llm.update).toHaveBeenCalledWith(
       'llm-xyz456',
-      expect.objectContaining({ general_prompt: expect.stringContaining('Sarah') })
+      expect.objectContaining({ general_prompt: expect.stringContaining('Tom') })
     )
   })
 })

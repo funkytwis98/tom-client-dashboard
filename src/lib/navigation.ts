@@ -15,20 +15,16 @@ export interface NavConfig {
 
 /**
  * Navigation items available to client_owner users.
- * Items without requiredProducts are always visible.
- * Items with requiredProducts are visible when ANY required product is enabled.
- * Knowledge Base is NOT a standalone nav item (REORG-07 -- it lives in Settings).
+ * Exactly 6 items: Home, Calls, Leads, Knowledge Base, Website, Settings.
  */
 export const CLIENT_NAV_CONFIG: NavConfig[] = [
-  { label: 'Health Overview', href: '/', icon: 'activity' },
-  { label: 'Notifications', href: '/notifications', icon: 'bell' },
-  { label: 'Teach Sarah', href: '/learn', icon: 'book', requiredProducts: ['receptionist'] },
-  { label: 'Calls', href: '/calls', icon: 'phone', requiredProducts: ['receptionist'] },
-  { label: 'Leads', href: '/leads', icon: 'target', requiredProducts: ['receptionist'] },
-  { label: 'Customers', href: '/customers', icon: 'users', requiredProducts: ['receptionist'] },
-  { label: 'Conversations', href: '/conversations', icon: 'message-circle', requiredProducts: ['social_media'] },
-  { label: 'Posts', href: '/posts', icon: 'file-text', requiredProducts: ['social_media'] },
-  { label: 'Social Connections', href: '/social', icon: 'share-2', requiredProducts: ['social_media'] },
+  { label: 'Home', href: '/', icon: 'home' },
+  { label: 'Calls', href: '/calls', icon: 'phone' },
+  { label: 'Leads', href: '/leads', icon: 'users' },
+  { label: 'CRM', href: '/crm', icon: 'contact' },
+  { label: 'Knowledge Base', href: '/knowledge-base', icon: 'book' },
+  { label: 'Learned', href: '/learned', icon: 'lightbulb' },
+  { label: 'Website', href: '/website-analytics', icon: 'globe' },
   { label: 'Settings', href: '/settings', icon: 'settings' },
 ]
 

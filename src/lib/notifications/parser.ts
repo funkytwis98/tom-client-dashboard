@@ -2,6 +2,11 @@ import type { OwnerCommand } from '@/types/api'
 
 // Regex patterns for each action type (case-insensitive)
 const PATTERNS: Array<{ pattern: RegExp; action: OwnerCommand['action'] }> = [
+  // website analytics
+  {
+    pattern: /\b(website|visitors|traffic|clicks|site\s+(stats|analytics|report))\b/i,
+    action: 'website',
+  },
   // contacted / call back
   {
     pattern: /\b(call\s+back|callback|call\s+them(\s+back)?)\b/i,

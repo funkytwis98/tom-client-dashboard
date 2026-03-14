@@ -1,6 +1,6 @@
 import twilio from 'twilio'
 import { env } from '@/lib/utils/env'
-import { formatNewLeadSMS, formatUrgentLeadSMS, formatMissedCallSMS, formatDailySummarySMS } from './templates'
+import { formatHotLeadSMS, formatMediumLeadSMS, formatBasicCallSMS, formatAfterHoursSMS, formatDailySummarySMS } from './templates'
 import type { NotificationPayload } from '@/types/api'
 import type { ClientSettings } from '@/types/domain'
 import { reportError } from '@/lib/monitoring/report-error'
@@ -29,23 +29,27 @@ export function verifyTwilioSignature(
 }
 
 /**
- * Selects and formats the SMS message body based on notification type.
+ * Selects and formats the SMS message body based on context.
+ *
+ * Priority: after-hours > score-based tiers > basic fallback.
+ * Score tiers: hot (>=7), medium (4-6), basic (<4 or no data).
  */
 function formatMessageForType(payload: NotificationPayload): string {
-  switch (payload.type) {
-    case 'urgent':
-      return formatUrgentLeadSMS(payload)
-    case 'new_lead':
-      return formatNewLeadSMS(payload)
-    case 'missed_call':
-      return formatMissedCallSMS(payload)
-    case 'daily_summary':
-      // daily_summary payload doesn't have DailySummary shape — caller should use
-      // formatDailySummarySMS directly and pass summary text in payload.summary
-      return payload.summary ?? 'Daily summary not available.'
-    default:
-      return payload.summary ?? 'New notification from your AI receptionist.'
+  if (payload.type === 'daily_summary') {
+    return payload.summary ?? 'Daily summary not available.'
   }
+
+  // After-hours calls get their own format regardless of score
+  if (payload.is_after_hours) {
+    return formatAfterHoursSMS(payload)
+  }
+
+  // Score-based formatting
+  const score = payload.lead_score
+  if (score != null && score >= 7) return formatHotLeadSMS(payload)
+  if (score != null && score >= 4) return formatMediumLeadSMS(payload)
+
+  return formatBasicCallSMS(payload)
 }
 
 /**

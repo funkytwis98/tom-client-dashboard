@@ -122,7 +122,7 @@ export function LeadsPipeline({ clientId, initialLeads, convertedLeadIds = [] }:
         </div>
       )}
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
+      <div className="flex gap-1 mb-4 border-b border-gray-200 overflow-x-auto">
         {STATUS_TABS.map((tab) => {
           const count =
             tab.value === 'all'
@@ -171,11 +171,11 @@ export function LeadsPipeline({ clientId, initialLeads, convertedLeadIds = [] }:
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Name</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Phone</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Service</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Urgency</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden sm:table-cell">Phone</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Service</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden sm:table-cell">Urgency</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Date</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Date</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
@@ -188,11 +188,11 @@ export function LeadsPipeline({ clientId, initialLeads, convertedLeadIds = [] }:
                     <td className="py-3 px-4 font-medium text-gray-900">
                       {lead.name ?? 'Unknown'}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">{lead.phone ?? '—'}</td>
-                    <td className="py-3 px-4 text-gray-600 max-w-[180px] truncate">
+                    <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{lead.phone ?? '—'}</td>
+                    <td className="py-3 px-4 text-gray-600 max-w-[180px] truncate hidden md:table-cell">
                       {lead.service_interested ?? '—'}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 hidden sm:table-cell">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${urgencyBadge.className}`}
                       >
@@ -206,11 +206,11 @@ export function LeadsPipeline({ clientId, initialLeads, convertedLeadIds = [] }:
                         {statusBadge.label}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-gray-500 whitespace-nowrap">
+                    <td className="py-3 px-4 text-gray-500 whitespace-nowrap hidden md:table-cell">
                       {formatDate(lead.created_at)}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {(lead.status === 'new') && (
                           <button
                             onClick={() => handleStatusChange(lead.id, 'contacted')}

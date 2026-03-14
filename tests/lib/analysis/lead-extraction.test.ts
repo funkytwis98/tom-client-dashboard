@@ -65,7 +65,7 @@ function mockAnthropicResponse(jsonContent: object) {
 // ---------------------------------------------------------------------------
 
 const QUALIFIED_LEAD_TRANSCRIPT = `
-Agent: Thanks for calling Interstate Tires, this is Sarah, how can I help you today?
+Agent: Thanks for calling Interstate Tires, this is Tom, how can I help you today?
 User: Hi, my name is John Smith, I need a tire rotation and possibly new tires for my truck.
 Agent: Great, John! I can definitely help with that. What's a good number to reach you?
 User: Yes, +14235550001, and I'd like to come in this week if possible.
@@ -74,7 +74,7 @@ User: Thursday works great.
 `
 
 const WRONG_NUMBER_TRANSCRIPT = `
-Agent: Thanks for calling Interstate Tires, this is Sarah.
+Agent: Thanks for calling Interstate Tires, this is Tom.
 User: Oh sorry, wrong number.
 `
 

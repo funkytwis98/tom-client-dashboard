@@ -1,64 +1,120 @@
 import { env } from '@/lib/utils/env'
 
+export type SubscriptionTier = 'website' | 'receptionist' | 'social' | 'complete' | 'the_works' | 'free'
+
 export interface TierConfig {
   name: string
-  tier: 'standard' | 'premium' | 'enterprise'
-  price: number // monthly price in dollars
-  stripePriceId: () => string
+  tier: SubscriptionTier
+  monthlyPrice: number // monthly recurring price in dollars
+  oneTimePrice: number // one-time setup fee in dollars (0 if none)
+  stripeRecurringPriceId: () => string
+  stripeOneTimePriceId: () => string | null
   features: string[]
+  products: ('website' | 'receptionist' | 'social')[]
 }
 
-export const TIERS: Record<'standard' | 'premium' | 'enterprise', TierConfig> = {
-  standard: {
-    name: 'Starter',
-    tier: 'standard',
-    price: 299,
-    stripePriceId: () => env.stripePriceStandard(),
+export const TIERS: Record<Exclude<SubscriptionTier, 'free'>, TierConfig> = {
+  website: {
+    name: 'Website',
+    tier: 'website',
+    monthlyPrice: 19,
+    oneTimePrice: 499,
+    stripeRecurringPriceId: () => env.stripePriceWebsiteMonthly(),
+    stripeOneTimePriceId: () => env.stripePriceWebsiteSetup(),
     features: [
-      'Inbound call answering',
-      '500 minutes/month',
+      'Custom-built website',
+      'Hosting & maintenance',
+      'Analytics dashboard',
+      'Monthly updates',
+    ],
+    products: ['website'],
+  },
+  receptionist: {
+    name: 'Tom Receptionist',
+    tier: 'receptionist',
+    monthlyPrice: 99,
+    oneTimePrice: 0,
+    stripeRecurringPriceId: () => env.stripePriceReceptionist(),
+    stripeOneTimePriceId: () => null,
+    features: [
+      'AI phone receptionist',
       'Owner SMS notifications',
+      'Lead capture & CRM',
       'Dashboard & analytics',
     ],
+    products: ['receptionist'],
   },
-  premium: {
-    name: 'Professional',
-    tier: 'premium',
-    price: 499,
-    stripePriceId: () => env.stripePricePremium(),
+  social: {
+    name: 'Tom Social',
+    tier: 'social',
+    monthlyPrice: 99,
+    oneTimePrice: 0,
+    stripeRecurringPriceId: () => env.stripePriceSocial(),
+    stripeOneTimePriceId: () => null,
     features: [
-      'Everything in Starter',
-      'Outbound follow-ups',
-      '1,000 minutes/month',
-      'Sales playbook',
-      'CRM access',
+      'AI social media manager',
+      'Auto-generated posts',
+      'Multi-platform publishing',
+      'Engagement tracking',
     ],
+    products: ['social'],
   },
-  enterprise: {
-    name: 'Enterprise',
-    tier: 'enterprise',
-    price: 799,
-    stripePriceId: () => env.stripePriceEnterprise(),
+  complete: {
+    name: 'Tom Complete',
+    tier: 'complete',
+    monthlyPrice: 149,
+    oneTimePrice: 0,
+    stripeRecurringPriceId: () => env.stripePriceComplete(),
+    stripeOneTimePriceId: () => null,
     features: [
-      'Everything in Professional',
-      'Custom integrations',
-      'Unlimited minutes',
-      'Priority support',
+      'AI phone receptionist',
+      'AI social media manager',
+      'Bundled discount ($49/mo savings)',
+      'Full dashboard access',
     ],
+    products: ['receptionist', 'social'],
+  },
+  the_works: {
+    name: 'The Works',
+    tier: 'the_works',
+    monthlyPrice: 149,
+    oneTimePrice: 499,
+    stripeRecurringPriceId: () => env.stripePriceTheWorksMonthly(),
+    stripeOneTimePriceId: () => env.stripePriceTheWorksSetup(),
+    features: [
+      'Custom-built website',
+      'AI phone receptionist',
+      'AI social media manager',
+      'Everything included',
+    ],
+    products: ['website', 'receptionist', 'social'],
   },
 }
 
 /**
- * Look up the subscription tier by Stripe price ID.
+ * Look up the subscription tier by Stripe recurring price ID.
  * Returns null if the price ID doesn't match any configured tier.
  */
-export function getTierByPriceId(priceId: string): 'standard' | 'premium' | 'enterprise' | null {
+export function getTierByPriceId(priceId: string): SubscriptionTier | null {
   for (const tier of Object.values(TIERS)) {
     try {
-      if (tier.stripePriceId() === priceId) return tier.tier
+      if (tier.stripeRecurringPriceId() === priceId) return tier.tier
     } catch {
       // env var not set — skip
     }
   }
   return null
+}
+
+/**
+ * Get the display price string for a tier.
+ */
+export function getTierPriceDisplay(tier: SubscriptionTier): string {
+  if (tier === 'free') return 'Free'
+  const config = TIERS[tier]
+  if (!config) return '—'
+  if (config.oneTimePrice > 0) {
+    return `$${config.oneTimePrice} + $${config.monthlyPrice}/mo`
+  }
+  return `$${config.monthlyPrice}/mo`
 }

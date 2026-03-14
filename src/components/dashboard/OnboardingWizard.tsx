@@ -14,9 +14,12 @@ const TIMEZONE_OPTIONS = [
 ]
 
 const TIER_OPTIONS = [
-  { value: 'standard', label: 'Standard — $299/mo' },
-  { value: 'premium', label: 'Premium — $499/mo' },
-  { value: 'enterprise', label: 'Enterprise — $799/mo' },
+  { value: 'free', label: 'Free (Beta)' },
+  { value: 'website', label: 'Website — $499 + $19/mo' },
+  { value: 'receptionist', label: 'Tom Receptionist — $99/mo' },
+  { value: 'social', label: 'Tom Social — $99/mo' },
+  { value: 'complete', label: 'Tom Complete — $149/mo' },
+  { value: 'the_works', label: 'The Works — $499 + $149/mo' },
 ] as const
 
 const VOICE_OPTIONS = [
@@ -26,7 +29,7 @@ const VOICE_OPTIONS = [
   { value: '11labs-Marissa', label: 'Marissa (Female, American)' },
   { value: '11labs-Nathan', label: 'Nathan (Male, American)' },
   { value: '11labs-Ryan', label: 'Ryan (Male, American)' },
-  { value: '11labs-Sarah', label: 'Sarah (Female, American)' },
+  { value: '11labs-Hailey', label: 'Hailey (Female, American)' },
   { value: '11labs-Laura', label: 'Laura (Female, American)' },
 ]
 
@@ -64,10 +67,10 @@ export function OnboardingWizard() {
     owner_phone: '',
     owner_email: '',
     timezone: 'America/New_York',
-    subscription_tier: 'standard' as 'standard' | 'premium' | 'enterprise',
+    subscription_tier: 'free' as 'website' | 'receptionist' | 'social' | 'complete' | 'the_works' | 'free',
     // Step 2
     agent_name: '',
-    voice_id: '11labs-Sarah',
+    voice_id: '11labs-Hailey',
     greeting: '',
     personality: '',
     sales_style: '',
@@ -361,7 +364,7 @@ export function OnboardingWizard() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Agent Name</label>
               <input
                 type="text"
-                placeholder="e.g., Sarah"
+                placeholder="e.g., Tom"
                 className={inputCls}
                 value={form.agent_name}
                 onChange={(e) => set('agent_name', e.target.value)}

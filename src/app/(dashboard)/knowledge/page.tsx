@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getClients } from '@/app/actions/clients'
 import { createClient } from '@/lib/supabase/server'
+import { HelpTooltip } from '@/components/dashboard/HelpTooltip'
 import type { Client } from '@/types/domain'
 
 export default async function KnowledgePage() {
@@ -28,7 +29,10 @@ export default async function KnowledgePage() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Knowledge Base</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">Knowledge Base</h1>
+          <HelpTooltip text="This is what Tom knows about your business. Add info here so Tom can answer customer questions better." />
+        </div>
         <p className="text-sm text-gray-500 mt-1">
           Manage AI knowledge per client
         </p>

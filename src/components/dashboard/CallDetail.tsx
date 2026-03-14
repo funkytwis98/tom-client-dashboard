@@ -1,7 +1,8 @@
 'use client'
 
-import { useOptimistic, useTransition } from 'react'
+import { useState, useOptimistic, useTransition } from 'react'
 import { updateLeadStatus } from '@/app/actions/leads'
+import { markCallbackDone } from '@/app/actions/calls'
 import type { Call, Lead } from '@/types/domain'
 
 interface CallDetailProps {
@@ -163,6 +164,38 @@ function LeadCard({ lead, clientId }: { lead: Lead; clientId: string }) {
   )
 }
 
+function CallbackBanner({ call }: { call: Call }) {
+  const [isPending, startTransition] = useTransition()
+  const [done, setDone] = useState(false)
+
+  if (!call.callback_promised || call.callback_completed || done) return null
+
+  function handleMarkDone() {
+    startTransition(async () => {
+      await markCallbackDone(call.id, call.client_id)
+      setDone(true)
+    })
+  }
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">⏰</span>
+        <p className="text-sm text-amber-800 font-medium">
+          Callback promised — {call.caller_name ?? call.caller_number ?? 'caller'} is waiting to hear back
+        </p>
+      </div>
+      <button
+        onClick={handleMarkDone}
+        disabled={isPending}
+        className="text-xs px-3 py-1.5 rounded bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+      >
+        {isPending ? 'Marking...' : 'Mark Callback Done'}
+      </button>
+    </div>
+  )
+}
+
 export function CallDetail({ call, lead }: CallDetailProps) {
   const directionColor = call.direction === 'inbound' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'
   const statusBadge = STATUS_BADGE[call.status] ?? { label: call.status, className: 'bg-gray-100 text-gray-700' }
@@ -215,6 +248,9 @@ export function CallDetail({ call, lead }: CallDetailProps) {
           )}
         </div>
       </div>
+
+      {/* Callback reminder banner */}
+      <CallbackBanner call={call} />
 
       {/* Lead card */}
       {lead && <LeadCard lead={lead} clientId={call.client_id} />}

@@ -16,6 +16,8 @@ export interface RetellCallObject {
   transcript_object?: TranscriptSegment[]
   recording_url?: string
   public_log_url?: string
+  end_call_after_silence_ms?: number
+  disconnection_reason?: string
   metadata?: Record<string, unknown>
 }
 

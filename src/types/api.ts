@@ -21,7 +21,7 @@ export interface CallAnalysis extends LeadAnalysis {
 
 // Parsed from owner SMS reply text
 export interface OwnerCommand {
-  action: 'contacted' | 'booked' | 'lost' | 'pause' | 'resume' | 'unknown'
+  action: 'contacted' | 'booked' | 'lost' | 'pause' | 'resume' | 'website' | 'unknown'
   raw: string
 }
 
@@ -37,6 +37,7 @@ export interface NotificationPayload {
   caller_number?: string
   summary?: string
   service?: string
+  is_after_hours?: boolean
 }
 
 // Daily summary data structure

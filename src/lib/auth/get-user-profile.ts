@@ -8,6 +8,9 @@ export interface UserContext {
   profile: UserProfile | null
   role: 'admin' | 'client_owner'
   clientId: string | null
+  clientName: string | null
+  ownerName: string | null
+  agentName: string | null
   productsEnabled: string[]
 }
 
@@ -31,16 +34,54 @@ export const getUserContext = cache(async (): Promise<UserContext | null> => {
   const role = profile?.role ?? 'admin'
   const clientId = profile?.client_id ?? null
 
-  // Fetch products_enabled for client_owner users
+  // Fetch client data
   let productsEnabled: string[] = []
+  let clientName: string | null = null
+  let ownerName: string | null = null
+  let agentName: string | null = null
+  let resolvedClientId = clientId
+
   if (role === 'client_owner' && clientId) {
-    const { data: client } = await supabase
-      .from('clients')
-      .select('products_enabled')
-      .eq('id', clientId)
-      .single()
+    // Client owner: fetch their specific client and agent config
+    const [{ data: client }, { data: agentConfig }] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('name, owner_name, products_enabled')
+        .eq('id', clientId)
+        .single(),
+      supabase
+        .from('agent_config')
+        .select('agent_name')
+        .eq('client_id', clientId)
+        .single(),
+    ])
 
     productsEnabled = (client?.products_enabled as string[] | null) ?? ['receptionist']
+    clientName = client?.name ?? null
+    ownerName = client?.owner_name ?? null
+    agentName = agentConfig?.agent_name ?? null
+  } else if (role === 'admin') {
+    // Admin: fetch the first client for dashboard display
+    const { data: client } = await supabase
+      .from('clients')
+      .select('id, name, owner_name, products_enabled')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+
+    if (client) {
+      resolvedClientId = client.id
+      productsEnabled = (client.products_enabled as string[] | null) ?? ['receptionist']
+      clientName = client.name ?? null
+      ownerName = client.owner_name ?? null
+
+      const { data: agentConfig } = await supabase
+        .from('agent_config')
+        .select('agent_name')
+        .eq('client_id', client.id)
+        .single()
+      agentName = agentConfig?.agent_name ?? null
+    }
   }
 
   return {
@@ -48,7 +89,10 @@ export const getUserContext = cache(async (): Promise<UserContext | null> => {
     email: user.email ?? '',
     profile: profile as UserProfile | null,
     role,
-    clientId,
+    clientId: resolvedClientId,
+    clientName,
+    ownerName,
+    agentName,
     productsEnabled,
   }
 })

@@ -186,12 +186,12 @@ export function CallLogTable({ clientId, initialCalls }: CallLogTableProps) {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-medium text-gray-500">Date / Time</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-500">Direction</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500 hidden sm:table-cell">Direction</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-500">Caller</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-500">Duration</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-500">Lead Score</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500 hidden sm:table-cell">Duration</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Lead Score</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-500"></th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500 hidden sm:table-cell"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -206,7 +206,7 @@ export function CallLogTable({ clientId, initialCalls }: CallLogTableProps) {
                       <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
                         {formatDateTime(call.created_at)}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden sm:table-cell">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${dirBadge.className}`}
                         >
@@ -216,10 +216,10 @@ export function CallLogTable({ clientId, initialCalls }: CallLogTableProps) {
                       <td className="py-3 px-4 text-gray-900">
                         {call.caller_name ?? call.caller_number ?? 'Unknown'}
                       </td>
-                      <td className="py-3 px-4 text-gray-600">
+                      <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">
                         {formatDuration(call.duration_seconds)}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden md:table-cell">
                         <LeadScoreBadge score={call.lead_score} />
                       </td>
                       <td className="py-3 px-4">
@@ -229,7 +229,7 @@ export function CallLogTable({ clientId, initialCalls }: CallLogTableProps) {
                           {statusBadge.label}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden sm:table-cell">
                         <Link
                           href={`/clients/${clientId}/calls/${call.id}`}
                           className="text-xs text-gray-500 hover:text-gray-900 transition-colors"

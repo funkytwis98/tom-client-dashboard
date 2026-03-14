@@ -13,9 +13,12 @@ const TIMEZONE_OPTIONS = [
 ]
 
 const TIER_OPTIONS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'premium', label: 'Premium' },
-  { value: 'enterprise', label: 'Enterprise' },
+  { value: 'free', label: 'Free (Beta)' },
+  { value: 'website', label: 'Website' },
+  { value: 'receptionist', label: 'Tom Receptionist' },
+  { value: 'social', label: 'Tom Social' },
+  { value: 'complete', label: 'Tom Complete' },
+  { value: 'the_works', label: 'The Works' },
 ] as const
 
 const STATUS_OPTIONS = [

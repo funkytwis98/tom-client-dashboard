@@ -91,13 +91,13 @@ export function CustomerList({ clientId, initialCustomers }: CustomerListProps) 
       )}
 
       {/* Search + Add */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, phone, or email..."
-          className="w-72 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="flex-1 min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         {!showAddForm && (
           <button
@@ -120,7 +120,7 @@ export function CustomerList({ clientId, initialCustomers }: CustomerListProps) 
       )}
 
       {/* Status tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
+      <div className="flex gap-1 mb-4 border-b border-gray-200 overflow-x-auto">
         {STATUS_TABS.map((tab) => {
           const count =
             tab.value === 'all'
@@ -161,12 +161,12 @@ export function CustomerList({ clientId, initialCustomers }: CustomerListProps) 
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Name</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Phone</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Email</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Tags</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Email</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden lg:table-cell">Tags</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Source</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Calls</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Added</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden lg:table-cell">Source</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Calls</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Added</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
@@ -185,8 +185,8 @@ export function CustomerList({ clientId, initialCustomers }: CustomerListProps) 
                       </Link>
                     </td>
                     <td className="py-3 px-4 text-gray-600">{customer.phone ?? '—'}</td>
-                    <td className="py-3 px-4 text-gray-600 max-w-[180px] truncate">{customer.email ?? '—'}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 text-gray-600 max-w-[180px] truncate hidden md:table-cell">{customer.email ?? '—'}</td>
+                    <td className="py-3 px-4 hidden lg:table-cell">
                       <div className="flex gap-1 flex-wrap">
                         {customer.tags.slice(0, 3).map((tag) => (
                           <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
@@ -203,13 +203,13 @@ export function CustomerList({ clientId, initialCustomers }: CustomerListProps) 
                         {statusBadge.label}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 hidden lg:table-cell">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sourceBadge.className}`}>
                         {sourceBadge.label}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-gray-600">{customer.total_calls}</td>
-                    <td className="py-3 px-4 text-gray-500 whitespace-nowrap">{formatDate(customer.created_at)}</td>
+                    <td className="py-3 px-4 text-gray-600 hidden md:table-cell">{customer.total_calls}</td>
+                    <td className="py-3 px-4 text-gray-500 whitespace-nowrap hidden md:table-cell">{formatDate(customer.created_at)}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1.5">
                         <Link
@@ -288,7 +288,7 @@ function CustomerAddForm({ clientId, onCreated, onCancel }: CustomerAddFormProps
         <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Name <span className="text-red-500">*</span>

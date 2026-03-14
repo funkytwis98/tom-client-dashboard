@@ -5,6 +5,7 @@ import type { Client } from '@/types/domain'
 const STATUS_BADGE: Record<Client['subscription_status'], { label: string; className: string }> = {
   active:    { label: 'Active',    className: 'bg-green-100 text-green-800' },
   paused:    { label: 'Paused',    className: 'bg-yellow-100 text-yellow-800' },
+  past_due:  { label: 'Past Due',  className: 'bg-orange-100 text-orange-800' },
   cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-800' },
 }
 
