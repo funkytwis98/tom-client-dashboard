@@ -4,7 +4,7 @@
  * Downstream consumers (Sidebar.tsx) map icon names to React components.
  */
 
-export type Product = 'receptionist' | 'social_media'
+export type Product = 'receptionist' | 'social'
 
 export interface NavConfig {
   label: string
@@ -15,16 +15,18 @@ export interface NavConfig {
 
 /**
  * Navigation items available to client_owner users.
- * Exactly 6 items: Home, Calls, Leads, Knowledge Base, Website, Settings.
+ * Items with requiredProducts only appear when that product is enabled.
  */
 export const CLIENT_NAV_CONFIG: NavConfig[] = [
   { label: 'Home', href: '/', icon: 'home' },
-  { label: 'Calls', href: '/calls', icon: 'phone' },
-  { label: 'Leads', href: '/leads', icon: 'users' },
   { label: 'CRM', href: '/crm', icon: 'contact' },
-  { label: 'Knowledge Base', href: '/knowledge-base', icon: 'book' },
-  { label: 'Learned', href: '/learned', icon: 'lightbulb' },
   { label: 'Website', href: '/website-analytics', icon: 'globe' },
+  { label: 'Calls', href: '/calls', icon: 'phone', requiredProducts: ['receptionist'] },
+  { label: 'Leads', href: '/leads', icon: 'users', requiredProducts: ['receptionist'] },
+  { label: 'Knowledge Base', href: '/knowledge-base', icon: 'book', requiredProducts: ['receptionist'] },
+  { label: 'Learned', href: '/learned', icon: 'lightbulb', requiredProducts: ['receptionist'] },
+  { label: 'Content', href: '/content', icon: 'calendar', requiredProducts: ['social'] },
+  { label: 'Analytics', href: '/analytics', icon: 'chart', requiredProducts: ['social'] },
   { label: 'Settings', href: '/settings', icon: 'settings' },
 ]
 

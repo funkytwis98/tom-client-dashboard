@@ -10,11 +10,15 @@ export const OPERATOR_ONLY_ROUTES: string[] = ['/clients', '/billing', '/knowled
 
 /** Routes gated by product -- client_owner needs the product enabled to access */
 export const PRODUCT_GATED_ROUTES: Record<string, Product[]> = {
-  '/posts': ['social_media'],
-  '/conversations': ['social_media'],
-  '/social': ['social_media'],
+  '/content': ['social'],
+  '/analytics': ['social'],
+  '/posts': ['social'],
+  '/conversations': ['social'],
+  '/social': ['social'],
   '/calls': ['receptionist'],
   '/leads': ['receptionist'],
+  '/learned': ['receptionist'],
+  '/knowledge-base': ['receptionist'],
   '/customers': ['receptionist'],
 }
 

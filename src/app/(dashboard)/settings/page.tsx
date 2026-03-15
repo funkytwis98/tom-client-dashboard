@@ -14,10 +14,15 @@ export default async function SettingsPage() {
     )
   }
 
-  // Fetch client and agent_config in parallel
-  const [{ data: client }, { data: agentConfig }] = await Promise.all([
+  const hasSocial = (ctx.productsEnabled ?? []).includes('social')
+
+  // Fetch client, agent_config, and optionally social_connections in parallel
+  const [{ data: client }, { data: agentConfig }, socialRes] = await Promise.all([
     supabase.from('clients').select('name, owner_name, owner_phone').eq('id', ctx.clientId).single(),
     supabase.from('agent_config').select('agent_name, greeting, voice_id, language').eq('client_id', ctx.clientId).single(),
+    hasSocial
+      ? supabase.from('social_connections').select('id, platform, status, account_name, connected_at').eq('client_id', ctx.clientId).order('platform')
+      : Promise.resolve({ data: null }),
   ])
 
   return (
@@ -42,6 +47,8 @@ export default async function SettingsPage() {
             voice_id: agentConfig?.voice_id ?? '',
             language: agentConfig?.language ?? 'en-US',
           }}
+          productsEnabled={ctx.productsEnabled}
+          socialConnections={socialRes?.data ?? []}
         />
       </div>
     </div>

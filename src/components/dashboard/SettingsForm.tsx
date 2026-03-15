@@ -29,14 +29,24 @@ interface ReceptionistData {
   language: string
 }
 
+interface SocialConnection {
+  id: string
+  platform: string
+  status: string
+  account_name: string | null
+  connected_at: string | null
+}
+
 interface SettingsFormProps {
   clientId: string
   email: string
   initialBusiness: BusinessData
   initialReceptionist: ReceptionistData
+  productsEnabled?: string[]
+  socialConnections?: SocialConnection[]
 }
 
-export function SettingsForm({ clientId, email, initialBusiness, initialReceptionist }: SettingsFormProps) {
+export function SettingsForm({ clientId, email, initialBusiness, initialReceptionist, productsEnabled = [], socialConnections = [] }: SettingsFormProps) {
   const { showToast } = useToast()
   const router = useRouter()
 
@@ -262,7 +272,42 @@ export function SettingsForm({ clientId, email, initialBusiness, initialReceptio
         </div>
       </section>
 
-      {/* Section 3: Account */}
+      {/* Section 3: Social Connections (only when social product is enabled) */}
+      {productsEnabled.includes('social') && (
+        <section className={cardCls}>
+          <h2 className="text-lg font-bold text-[#111] mb-5">Social Connections</h2>
+          {socialConnections.length === 0 ? (
+            <p className="text-sm text-gray-500">No social accounts connected yet. Connections will appear here once set up.</p>
+          ) : (
+            <div className="space-y-3">
+              {socialConnections.map(conn => (
+                <div key={conn.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <span className="text-xs font-bold text-gray-600 uppercase">
+                        {conn.platform.slice(0, 2)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[#111] capitalize">{conn.platform}</p>
+                      <p className="text-xs text-gray-500">{conn.account_name || 'No account name'}</p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                    conn.status === 'connected'
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-red-50 text-red-600'
+                  }`}>
+                    {conn.status === 'connected' ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Section 4: Account */}
       <section className={cardCls}>
         <h2 className="text-lg font-bold text-[#111] mb-5">Account</h2>
         <div className="space-y-4">
