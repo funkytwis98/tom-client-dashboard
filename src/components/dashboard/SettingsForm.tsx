@@ -16,6 +16,8 @@ const LANGUAGE_OPTIONS = [
   { value: 'multi', label: 'Bilingual (English + Spanish)' },
 ]
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
 interface BusinessData {
   name: string
   owner_name: string
@@ -37,6 +39,23 @@ interface SocialConnection {
   connected_at: string | null
 }
 
+interface BusinessHour {
+  id: string
+  day_of_week: number
+  is_open: boolean
+  open_time: string | null
+  close_time: string | null
+}
+
+interface ServicePricing {
+  id: string
+  service_name: string
+  price_text: string | null
+  notes: string | null
+  sort_order: number | null
+  is_active: boolean
+}
+
 interface SettingsFormProps {
   clientId: string
   email: string
@@ -44,15 +63,28 @@ interface SettingsFormProps {
   initialReceptionist: ReceptionistData
   productsEnabled?: string[]
   socialConnections?: SocialConnection[]
+  businessHours?: BusinessHour[]
+  services?: ServicePricing[]
 }
 
-export function SettingsForm({ clientId, email, initialBusiness, initialReceptionist, productsEnabled = [], socialConnections = [] }: SettingsFormProps) {
+export function SettingsForm({
+  clientId,
+  email,
+  initialBusiness,
+  initialReceptionist,
+  productsEnabled = [],
+  socialConnections = [],
+  businessHours = [],
+  services = [],
+}: SettingsFormProps) {
   const { showToast } = useToast()
   const router = useRouter()
+  const hasReceptionist = productsEnabled.includes('receptionist')
+  const hasSocial = productsEnabled.includes('social')
 
   // Voice options from Retell
   const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([])
-  const [voicesLoading, setVoicesLoading] = useState(true)
+  const [voicesLoading, setVoicesLoading] = useState(hasReceptionist)
 
   // Business form
   const [biz, setBiz] = useState(initialBusiness)
@@ -64,27 +96,26 @@ export function SettingsForm({ clientId, email, initialBusiness, initialReceptio
   const [recDirty, setRecDirty] = useState(false)
   const [isSavingRec, startSaveRec] = useTransition()
 
-  // Fetch available voices from Retell on mount
+  // Fetch available voices from Retell on mount (only when receptionist is enabled)
   useEffect(() => {
+    if (!hasReceptionist) return
     let cancelled = false
     async function fetchVoices() {
       try {
         const res = await fetch('/api/settings/voices')
         if (res.ok) {
           const data = await res.json()
-          if (!cancelled) {
-            setVoiceOptions(data.voices)
-          }
+          if (!cancelled) setVoiceOptions(data.voices)
         }
       } catch {
-        // Silently fail — dropdown will show current voice_id as fallback
+        // Silently fail
       } finally {
         if (!cancelled) setVoicesLoading(false)
       }
     }
     fetchVoices()
     return () => { cancelled = true }
-  }, [])
+  }, [hasReceptionist])
 
   function updateBiz<K extends keyof BusinessData>(key: K, value: BusinessData[K]) {
     setBiz(prev => ({ ...prev, [key]: value }))
@@ -154,41 +185,32 @@ export function SettingsForm({ clientId, email, initialBusiness, initialReceptio
   const labelCls = 'block text-[13px] font-medium text-[#555] mb-1.5'
   const cardCls = 'bg-white rounded-[14px] border border-[#e5e7eb] p-4 md:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]'
 
-  // If the current voice_id isn't in the fetched list, show it as a fallback option
   const currentVoiceInList = voiceOptions.some(v => v.value === rec.voice_id)
+
+  // Sort hours by day (Mon=1 first, Sun=0 last)
+  const sortedHours = [...businessHours].sort((a, b) => {
+    const aKey = a.day_of_week === 0 ? 7 : a.day_of_week
+    const bKey = b.day_of_week === 0 ? 7 : b.day_of_week
+    return aKey - bKey
+  })
 
   return (
     <div className="space-y-6">
-      {/* Section 1: Business Information */}
+      {/* Business Information — always visible */}
       <section className={cardCls}>
         <h2 className="text-lg font-bold text-[#111] mb-5">Business Information</h2>
         <div className="space-y-4">
           <div>
             <label className={labelCls}>Business Name</label>
-            <input
-              type="text"
-              className={inputCls}
-              value={biz.name}
-              onChange={e => updateBiz('name', e.target.value)}
-            />
+            <input type="text" className={inputCls} value={biz.name} onChange={e => updateBiz('name', e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Owner Name</label>
-            <input
-              type="text"
-              className={inputCls}
-              value={biz.owner_name}
-              onChange={e => updateBiz('owner_name', e.target.value)}
-            />
+            <input type="text" className={inputCls} value={biz.owner_name} onChange={e => updateBiz('owner_name', e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Phone</label>
-            <input
-              type="tel"
-              className={inputCls}
-              value={biz.owner_phone}
-              onChange={e => updateBiz('owner_phone', e.target.value)}
-            />
+            <input type="tel" className={inputCls} value={biz.owner_phone} onChange={e => updateBiz('owner_phone', e.target.value)} />
           </div>
         </div>
         <div className="flex justify-end mt-5">
@@ -202,78 +224,108 @@ export function SettingsForm({ clientId, email, initialBusiness, initialReceptio
         </div>
       </section>
 
-      {/* Section 2: Receptionist Settings */}
+      {/* Business Hours — always visible */}
       <section className={cardCls}>
-        <h2 className="text-lg font-bold text-[#111] mb-5">Receptionist Settings</h2>
-        <div className="space-y-4">
-          <div>
-            <label className={labelCls}>Receptionist Name</label>
-            <input
-              type="text"
-              className={inputCls}
-              value={rec.agent_name}
-              onChange={e => updateRec('agent_name', e.target.value)}
-            />
-            <p className="mt-1 text-xs text-gray-400">The name your receptionist uses on calls</p>
+        <h2 className="text-lg font-bold text-[#111] mb-5">Business Hours</h2>
+        {sortedHours.length === 0 ? (
+          <p className="text-sm text-gray-500">No business hours configured yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {sortedHours.map(h => (
+              <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <span className="text-sm font-medium text-[#333] w-28">{DAY_NAMES[h.day_of_week]}</span>
+                {h.is_open ? (
+                  <span className="text-sm text-[#111]">
+                    {formatTime(h.open_time)} &ndash; {formatTime(h.close_time)}
+                  </span>
+                ) : (
+                  <span className="text-sm text-[#999]">Closed</span>
+                )}
+              </div>
+            ))}
           </div>
-          <div>
-            <label className={labelCls}>Greeting Message</label>
-            <textarea
-              rows={3}
-              className={inputCls}
-              value={rec.greeting}
-              onChange={e => updateRec('greeting', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Voice</label>
-            <select
-              className={inputCls}
-              value={rec.voice_id}
-              onChange={e => updateRec('voice_id', e.target.value)}
-              disabled={voicesLoading}
-            >
-              {voicesLoading ? (
-                <option>Loading voices...</option>
-              ) : (
-                <>
-                  <option value="">Select a voice...</option>
-                  {!currentVoiceInList && rec.voice_id && (
-                    <option value={rec.voice_id}>{rec.voice_id} (current)</option>
-                  )}
-                  {voiceOptions.map(v => (
-                    <option key={v.value} value={v.value}>{v.label}</option>
-                  ))}
-                </>
-              )}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Language</label>
-            <select
-              className={inputCls}
-              value={rec.language}
-              onChange={e => updateRec('language', e.target.value)}
-            >
-              {LANGUAGE_OPTIONS.map(l => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex justify-end mt-5">
-          <button
-            onClick={handleSaveReceptionist}
-            disabled={!recDirty || isSavingRec}
-            className="bg-[#FFD700] text-[#111] font-semibold text-sm rounded-[14px] px-6 py-3 disabled:opacity-50 hover:brightness-95 transition-all"
-          >
-            {isSavingRec ? 'Saving...' : 'Save'}
-          </button>
-        </div>
+        )}
+        <p className="text-xs text-gray-400 mt-4">Contact your agency to update business hours.</p>
       </section>
 
-      {/* Section 3: Social Connections (only when social product is enabled) */}
-      {productsEnabled.includes('social') && (
+      {/* Services & Pricing — always visible */}
+      <section className={cardCls}>
+        <h2 className="text-lg font-bold text-[#111] mb-5">Services &amp; Pricing</h2>
+        {services.length === 0 ? (
+          <p className="text-sm text-gray-500">No services configured yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {services.map(svc => (
+              <div key={svc.id} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[#111]">{svc.service_name}</p>
+                  {svc.notes && <p className="text-xs text-[#777] mt-0.5">{svc.notes}</p>}
+                </div>
+                {svc.price_text && (
+                  <span className="text-sm font-semibold text-[#111] ml-4 shrink-0">{svc.price_text}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-gray-400 mt-4">Contact your agency to update services and pricing.</p>
+      </section>
+
+      {/* Receptionist Settings — only when receptionist is enabled */}
+      {hasReceptionist && (
+        <section className={cardCls}>
+          <h2 className="text-lg font-bold text-[#111] mb-5">Receptionist Settings</h2>
+          <div className="space-y-4">
+            <div>
+              <label className={labelCls}>Receptionist Name</label>
+              <input type="text" className={inputCls} value={rec.agent_name} onChange={e => updateRec('agent_name', e.target.value)} />
+              <p className="mt-1 text-xs text-gray-400">The name your receptionist uses on calls</p>
+            </div>
+            <div>
+              <label className={labelCls}>Greeting Message</label>
+              <textarea rows={3} className={inputCls} value={rec.greeting} onChange={e => updateRec('greeting', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Voice</label>
+              <select className={inputCls} value={rec.voice_id} onChange={e => updateRec('voice_id', e.target.value)} disabled={voicesLoading}>
+                {voicesLoading ? (
+                  <option>Loading voices...</option>
+                ) : (
+                  <>
+                    <option value="">Select a voice...</option>
+                    {!currentVoiceInList && rec.voice_id && (
+                      <option value={rec.voice_id}>{rec.voice_id} (current)</option>
+                    )}
+                    {voiceOptions.map(v => (
+                      <option key={v.value} value={v.value}>{v.label}</option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Language</label>
+              <select className={inputCls} value={rec.language} onChange={e => updateRec('language', e.target.value)}>
+                {LANGUAGE_OPTIONS.map(l => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end mt-5">
+            <button
+              onClick={handleSaveReceptionist}
+              disabled={!recDirty || isSavingRec}
+              className="bg-[#FFD700] text-[#111] font-semibold text-sm rounded-[14px] px-6 py-3 disabled:opacity-50 hover:brightness-95 transition-all"
+            >
+              {isSavingRec ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Social Connections — only when social is enabled */}
+      {hasSocial && (
         <section className={cardCls}>
           <h2 className="text-lg font-bold text-[#111] mb-5">Social Connections</h2>
           {socialConnections.length === 0 ? (
@@ -307,7 +359,7 @@ export function SettingsForm({ clientId, email, initialBusiness, initialReceptio
         </section>
       )}
 
-      {/* Section 4: Account */}
+      {/* Account — always visible */}
       <section className={cardCls}>
         <h2 className="text-lg font-bold text-[#111] mb-5">Account</h2>
         <div className="space-y-4">
@@ -327,4 +379,13 @@ export function SettingsForm({ clientId, email, initialBusiness, initialReceptio
       </section>
     </div>
   )
+}
+
+function formatTime(time: string | null): string {
+  if (!time) return ''
+  // time is "HH:MM" or "HH:MM:SS" — convert to 12h
+  const [h, m] = time.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`
 }

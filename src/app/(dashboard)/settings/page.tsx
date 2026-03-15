@@ -15,21 +15,27 @@ export default async function SettingsPage() {
   }
 
   const hasSocial = (ctx.productsEnabled ?? []).includes('social')
+  const hasReceptionist = (ctx.productsEnabled ?? []).includes('receptionist')
 
-  // Fetch client, agent_config, and optionally social_connections in parallel
-  const [{ data: client }, { data: agentConfig }, socialRes] = await Promise.all([
+  const [{ data: client }, agentRes, socialRes, { data: hours }, { data: services }] = await Promise.all([
     supabase.from('clients').select('name, owner_name, owner_phone').eq('id', ctx.clientId).single(),
-    supabase.from('agent_config').select('agent_name, greeting, voice_id, language').eq('client_id', ctx.clientId).single(),
+    hasReceptionist
+      ? supabase.from('agent_config').select('agent_name, greeting, voice_id, language').eq('client_id', ctx.clientId).single()
+      : Promise.resolve({ data: null }),
     hasSocial
       ? supabase.from('social_connections').select('id, platform, status, account_name, connected_at').eq('client_id', ctx.clientId).order('platform')
       : Promise.resolve({ data: null }),
+    supabase.from('business_hours').select('id, day_of_week, is_open, open_time, close_time').eq('client_id', ctx.clientId).order('day_of_week'),
+    supabase.from('services_pricing').select('id, service_name, price_text, notes, sort_order, is_active').eq('client_id', ctx.clientId).eq('is_active', true).order('sort_order'),
   ])
+
+  const agentConfig = agentRes?.data ?? null
 
   return (
     <div className="p-4 md:p-8 bg-[#fafafa] min-h-screen">
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your business and receptionist settings</p>
+        <p className="text-sm text-gray-500 mt-1">Manage your business settings</p>
       </div>
 
       <div className="max-w-2xl">
@@ -49,6 +55,8 @@ export default async function SettingsPage() {
           }}
           productsEnabled={ctx.productsEnabled}
           socialConnections={socialRes?.data ?? []}
+          businessHours={hours ?? []}
+          services={services ?? []}
         />
       </div>
     </div>
