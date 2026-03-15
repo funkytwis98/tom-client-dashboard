@@ -76,7 +76,7 @@ export async function middleware(request: NextRequest) {
           .single()
 
         const productsEnabled = new Set(
-          (client?.products_enabled as string[] | null) ?? ['receptionist']
+          (client?.products_enabled as string[] | null) ?? []
         )
 
         for (const [route, requiredProducts] of Object.entries(PRODUCT_GATED_ROUTES)) {

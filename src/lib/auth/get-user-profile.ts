@@ -56,7 +56,7 @@ export const getUserContext = cache(async (): Promise<UserContext | null> => {
         .single(),
     ])
 
-    productsEnabled = (client?.products_enabled as string[] | null) ?? ['receptionist']
+    productsEnabled = (client?.products_enabled as string[] | null) ?? []
     clientName = client?.name ?? null
     ownerName = client?.owner_name ?? null
     agentName = agentConfig?.agent_name ?? null

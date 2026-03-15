@@ -17,7 +17,7 @@ export default async function DashboardLayout({
           userEmail={ctx?.email ?? 'Admin'}
           displayName={ctx?.profile?.display_name ?? null}
           ownerName={ctx?.ownerName ?? null}
-          productsEnabled={ctx?.productsEnabled?.length ? ctx.productsEnabled : ['receptionist', 'social']}
+          productsEnabled={ctx?.productsEnabled ?? []}
         />
 
         {/* Main content */}
