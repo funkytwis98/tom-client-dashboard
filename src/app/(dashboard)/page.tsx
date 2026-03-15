@@ -2,24 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserContext } from '@/lib/auth/get-user-profile'
 import { CallVolumeChart } from '@/components/dashboard/CallVolumeChart'
 import Link from 'next/link'
-import { Phone, Target, Clock, ClipboardList, Users, Globe, Lightbulb, FileText, BookOpen, Settings } from 'lucide-react'
+import { Phone, Target, Clock, ClipboardList, Users, Globe, FileText, BookOpen, Settings, BarChart3, Heart, Send } from 'lucide-react'
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return '0:00'
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }
 
 function getGreeting(): string {
@@ -80,6 +69,10 @@ export default async function DashboardPage() {
   const ownerName = ctx?.ownerName ?? ctx?.profile?.display_name ?? ctx?.email ?? 'there'
   const firstName = ownerName.split(' ')[0]
   const agentName = ctx?.agentName ?? 'Your receptionist'
+  const products = ctx?.productsEnabled ?? []
+  const hasReceptionist = products.includes('receptionist')
+  const hasSocial = products.includes('social')
+  const hasAnyProduct = hasReceptionist || hasSocial
 
   // Week start (Monday)
   const now = new Date()
@@ -89,102 +82,21 @@ export default async function DashboardPage() {
   weekStart.setHours(0, 0, 0, 0)
   const weekStartISO = weekStart.toISOString()
 
-  // Parallel data fetching
-  const [
-    { count: callsThisWeek },
-    { count: newLeadsCount },
-    { data: durationData },
-    { count: callbacksDue },
-    { data: recentCalls },
-    { data: newLeads },
-    { count: kbCount },
-    { data: lastCallData },
-    chartData,
-    { count: totalContacts },
-    { count: websiteVisits },
-    { count: knowledgeGaps },
-    { count: formSubmissions },
-  ] = await Promise.all([
-    // Calls this week
-    supabase
-      .from('calls')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_id', clientId)
-      .gte('created_at', weekStartISO)
-      .neq('status', 'in_progress'),
-    // New leads this week
-    supabase
-      .from('leads')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_id', clientId)
-      .eq('status', 'new')
-      .gte('created_at', weekStartISO),
-    // Avg duration this week
-    supabase
-      .from('calls')
-      .select('duration_seconds')
-      .eq('client_id', clientId)
-      .gte('created_at', weekStartISO)
-      .neq('status', 'in_progress')
-      .not('duration_seconds', 'is', null),
-    // Callbacks due
-    supabase
-      .from('calls')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_id', clientId)
-      .eq('callback_promised', true)
-      .eq('callback_completed', false),
-    // Recent calls (last 5)
-    supabase
-      .from('calls')
-      .select('id, caller_name, caller_number, sentiment, duration_seconds, summary, created_at, callback_promised, callback_completed')
-      .eq('client_id', clientId)
-      .neq('status', 'in_progress')
-      .order('created_at', { ascending: false })
-      .limit(5),
-    // New leads (last 5)
-    supabase
-      .from('leads')
-      .select('id, name, phone, urgency, status, service_interested, created_at')
-      .eq('client_id', clientId)
-      .eq('status', 'new')
-      .order('created_at', { ascending: false })
-      .limit(5),
-    // KB count
-    supabase
-      .from('knowledge_base')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_id', clientId)
-      .eq('is_active', true),
-    // Last call
-    supabase
-      .from('calls')
-      .select('created_at')
-      .eq('client_id', clientId)
-      .neq('status', 'in_progress')
-      .order('created_at', { ascending: false })
-      .limit(1),
-    // Chart data
-    getCallVolumeData(supabase, clientId),
+  // --- Base queries (always fetched) ---
+  const baseQueries = [
     // Total contacts (confirmed)
     supabase
       .from('contacts')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId)
       .eq('status', 'confirmed'),
-    // Website visits this week (distinct visitors)
+    // Website visits this week
     supabase
       .from('website_analytics')
       .select('visitor_id', { count: 'exact', head: false })
       .eq('client_id', clientId)
       .eq('event_type', 'page_view')
       .gte('created_at', weekStartISO),
-    // Knowledge gaps (pending learning proposals)
-    supabase
-      .from('learning_proposals')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_id', clientId)
-      .eq('status', 'pending'),
     // Form submissions this week
     supabase
       .from('website_analytics')
@@ -192,25 +104,128 @@ export default async function DashboardPage() {
       .eq('client_id', clientId)
       .eq('event_type', 'form_submission')
       .gte('created_at', weekStartISO),
+  ] as const
+
+  // --- Receptionist queries (conditional) ---
+  const receptionistQueries = hasReceptionist ? [
+    supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .gte('created_at', weekStartISO)
+      .neq('status', 'in_progress'),
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('status', 'new')
+      .gte('created_at', weekStartISO),
+    supabase
+      .from('calls')
+      .select('duration_seconds')
+      .eq('client_id', clientId)
+      .gte('created_at', weekStartISO)
+      .neq('status', 'in_progress')
+      .not('duration_seconds', 'is', null),
+    supabase
+      .from('calls')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('callback_promised', true)
+      .eq('callback_completed', false),
+    supabase
+      .from('calls')
+      .select('id, caller_name, caller_number, sentiment, duration_seconds, summary, created_at, callback_promised, callback_completed')
+      .eq('client_id', clientId)
+      .neq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('leads')
+      .select('id, name, phone, urgency, status, service_interested, created_at')
+      .eq('client_id', clientId)
+      .eq('status', 'new')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('calls')
+      .select('created_at')
+      .eq('client_id', clientId)
+      .neq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    getCallVolumeData(supabase, clientId),
+    supabase
+      .from('knowledge_base')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('is_active', true),
+  ] as const : null
+
+  // --- Social queries (conditional) ---
+  const socialQueries = hasSocial ? [
+    supabase
+      .from('posts')
+      .select('id, engagement_likes, engagement_comments, engagement_shares, engagement_reach')
+      .eq('client_id', clientId)
+      .gte('created_at', weekStartISO),
+    supabase
+      .from('posts')
+      .select('id, engagement_likes, engagement_comments, engagement_shares, engagement_reach, status')
+      .eq('client_id', clientId),
+  ] as const : null
+
+  // Execute all in parallel
+  const [baseResults, recResults, socialResults] = await Promise.all([
+    Promise.all(baseQueries),
+    receptionistQueries ? Promise.all(receptionistQueries) : Promise.resolve(null),
+    socialQueries ? Promise.all(socialQueries) : Promise.resolve(null),
   ])
 
-  const avgDuration =
-    durationData && durationData.length > 0
-      ? Math.round(
-          durationData.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0) / durationData.length
-        )
+  // Base metrics
+  const totalContacts = baseResults[0].count ?? 0
+  const websiteVisitorCount = baseResults[1].count ?? 0
+  const formCount = baseResults[2].count ?? 0
+
+  // Receptionist metrics
+  let callsThisWeek = 0, newLeadsCount = 0, avgDuration = 0, callbacksDue = 0
+  let recentCalls: Array<{ id: string; caller_name: string | null; caller_number: string | null; sentiment: string | null; duration_seconds: number | null; summary: string | null; created_at: string; callback_promised: boolean; callback_completed: boolean }> = []
+  let recentLeads: Array<{ id: string; name: string | null; phone: string | null; urgency: string; status: string; service_interested: string | null; created_at: string }> = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let lastCall: any = null
+  let chartData: { date: string; calls: number }[] = []
+  let kbCount = 0
+
+  if (recResults) {
+    callsThisWeek = recResults[0].count ?? 0
+    newLeadsCount = recResults[1].count ?? 0
+    const durationData = recResults[2].data ?? []
+    avgDuration = durationData.length > 0
+      ? Math.round(durationData.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0) / durationData.length)
       : 0
+    callbacksDue = recResults[3].count ?? 0
+    recentCalls = (recResults[4].data ?? []) as typeof recentCalls
+    recentLeads = (recResults[5].data ?? []) as typeof recentLeads
+    lastCall = recResults[6].data?.[0] ?? null
+    chartData = recResults[7] as typeof chartData
+    kbCount = recResults[8].count ?? 0
+  }
 
-  const calls = recentCalls ?? []
-  const leads = newLeads ?? []
-  const lastCall = lastCallData?.[0]
-  const hasCallbacks = (callbacksDue ?? 0) > 0
+  // Social metrics
+  let postsThisWeek = 0, totalEngagement = 0, totalReach = 0
+  if (socialResults) {
+    const weekPosts = socialResults[0].data ?? []
+    postsThisWeek = weekPosts.length
+    const allPosts = socialResults[1].data ?? []
+    const publishedPosts = allPosts.filter(p => p.status === 'published')
+    totalEngagement = publishedPosts.reduce((s, p) => s + (p.engagement_likes ?? 0) + (p.engagement_comments ?? 0) + (p.engagement_shares ?? 0), 0)
+    totalReach = publishedPosts.reduce((s, p) => s + (p.engagement_reach ?? 0), 0)
+  }
 
-  // Compute distinct website visitors from the returned data
-  // The query returns visitor_id rows — we just use count since head: true won't give distinct
-  const websiteVisitorCount = websiteVisits ?? 0
-  const gapCount = knowledgeGaps ?? 0
-  const formCount = formSubmissions ?? 0
+  const hasCallbacks = callbacksDue > 0
+  const subtitle = hasAnyProduct
+    ? `Here\u2019s what${hasReceptionist ? ` ${agentName}` : ' your tools'} ${hasReceptionist ? 'has' : 'have'} been doing for your business.`
+    : 'Welcome to your dashboard. Enable products from your agency to get started.'
 
   return (
     <div className="p-4 md:p-8 bg-[#fafafa] min-h-full">
@@ -219,169 +234,205 @@ export default async function DashboardPage() {
         <h1 className="text-2xl md:text-3xl font-bold text-[#111]" suppressHydrationWarning>
           {getGreeting()}, {firstName}
         </h1>
-        <p className="text-sm text-[#777] mt-1">
-          Here&apos;s what {agentName} has been doing for your business.
-        </p>
+        <p className="text-sm text-[#777] mt-1">{subtitle}</p>
       </div>
 
-      {/* Stat Cards — Row 1 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <StatCard icon={<Phone size={18} className="text-[#999]" />} label="Calls This Week" value={callsThisWeek ?? 0} href="/calls" />
-        <StatCard icon={<Target size={18} className="text-[#999]" />} label="New Leads" value={newLeadsCount ?? 0} href="/leads" />
-        <StatCard icon={<Clock size={18} className="text-[#999]" />} label="Avg Duration" value={formatDuration(avgDuration)} href="/calls" />
-        <StatCard
-          icon={<ClipboardList size={18} className="text-[#999]" />}
-          label="Callbacks Due"
-          value={callbacksDue ?? 0}
-          highlight={hasCallbacks}
-          subtitle={hasCallbacks ? 'Needs follow-up' : undefined}
-          href="/calls?filter=callback"
-        />
-      </div>
-
-      {/* Stat Cards — Row 2 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<Users size={18} className="text-[#999]" />} label="Total Contacts" value={totalContacts ?? 0} href="/crm" />
+      {/* Base Stat Cards — always visible */}
+      <div className={`grid grid-cols-2 md:grid-cols-${hasReceptionist || hasSocial ? '4' : '3'} gap-4 mb-4`}>
         <StatCard icon={<Globe size={18} className="text-[#999]" />} label="Website Visits" value={websiteVisitorCount} href="/website-analytics" />
-        <StatCard
-          icon={<Lightbulb size={18} className="text-[#999]" />}
-          label="Knowledge Gaps"
-          value={gapCount === 0 ? 'All clear' : gapCount}
-          href="/learned"
-          allClear={gapCount === 0}
-        />
+        <StatCard icon={<Users size={18} className="text-[#999]" />} label="Total Contacts" value={totalContacts} href="/crm" />
         <StatCard icon={<FileText size={18} className="text-[#999]" />} label="Form Submissions" value={formCount} href="/website-analytics" />
+
+        {/* Fill 4th slot based on what's enabled */}
+        {hasReceptionist && (
+          <StatCard icon={<Phone size={18} className="text-[#999]" />} label="Calls This Week" value={callsThisWeek} href="/calls" />
+        )}
+        {!hasReceptionist && hasSocial && (
+          <StatCard icon={<Send size={18} className="text-[#999]" />} label="Posts This Week" value={postsThisWeek} href="/content" />
+        )}
       </div>
 
-      {/* Call Volume Chart */}
-      <div className="mb-8">
-        <CallVolumeChart data={chartData} />
-      </div>
-
-      {/* Two-column: Recent Calls + New Leads */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Recent Calls */}
-        <div className="bg-white rounded-xl border border-[#e5e7eb]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[#111]">Recent Calls</h2>
-            <Link href="/calls" className="text-sm text-[#777] hover:text-[#111] transition-colors">
-              View all &rarr;
-            </Link>
-          </div>
-          {calls.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <Phone size={28} className="text-[#ccc] mx-auto mb-3" />
-              <p className="text-sm text-[#777]">No calls yet</p>
-              <p className="text-xs text-[#999] mt-1">{agentName} will log every call automatically.</p>
-            </div>
+      {/* Receptionist Stat Cards */}
+      {hasReceptionist && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <StatCard icon={<Target size={18} className="text-[#999]" />} label="New Leads" value={newLeadsCount} href="/leads" />
+          <StatCard icon={<Clock size={18} className="text-[#999]" />} label="Avg Duration" value={formatDuration(avgDuration)} href="/calls" />
+          <StatCard
+            icon={<ClipboardList size={18} className="text-[#999]" />}
+            label="Callbacks Due"
+            value={callbacksDue}
+            highlight={hasCallbacks}
+            subtitle={hasCallbacks ? 'Needs follow-up' : undefined}
+            href="/calls?filter=callback"
+          />
+          {hasSocial ? (
+            <StatCard icon={<Send size={18} className="text-[#999]" />} label="Posts This Week" value={postsThisWeek} href="/content" />
           ) : (
-            <ul className="divide-y divide-gray-100">
-              {calls.map((call) => (
-                <li key={call.id} className="px-5 py-3.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-sm font-medium text-[#111] truncate">
-                        {call.caller_name ?? call.caller_number ?? 'Unknown'}
-                      </p>
-                      {call.sentiment && (
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${sentimentColor(call.sentiment)} hidden sm:inline-flex`}>
-                          {call.sentiment}
-                        </span>
-                      )}
-                      {call.callback_promised && !call.callback_completed && (
-                        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 hidden sm:inline-flex">
-                          Callback requested
-                        </span>
-                      )}
+            <StatCard icon={<BookOpen size={18} className="text-[#999]" />} label="KB Entries" value={kbCount} href="/knowledge-base" />
+          )}
+        </div>
+      )}
+
+      {/* Social Stat Cards */}
+      {hasSocial && (
+        <div className={`grid grid-cols-2 md:grid-cols-${hasReceptionist ? '3' : '4'} gap-4 mb-4`}>
+          {!hasReceptionist && (
+            <StatCard icon={<Send size={18} className="text-[#999]" />} label="Posts This Week" value={postsThisWeek} href="/content" />
+          )}
+          <StatCard icon={<Heart size={18} className="text-[#999]" />} label="Total Engagement" value={totalEngagement.toLocaleString()} href="/analytics" />
+          <StatCard icon={<BarChart3 size={18} className="text-[#999]" />} label="Total Reach" value={totalReach.toLocaleString()} href="/analytics" />
+          {hasReceptionist && (
+            <StatCard icon={<BookOpen size={18} className="text-[#999]" />} label="KB Entries" value={kbCount} href="/knowledge-base" />
+          )}
+        </div>
+      )}
+
+      <div className="mb-8" />
+
+      {/* Call Volume Chart — only when receptionist is enabled */}
+      {hasReceptionist && (
+        <div className="mb-8">
+          <CallVolumeChart data={chartData} />
+        </div>
+      )}
+
+      {/* Two-column: Recent Calls + New Leads — only when receptionist */}
+      {hasReceptionist && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Recent Calls */}
+          <div className="bg-white rounded-xl border border-[#e5e7eb]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#111]">Recent Calls</h2>
+              <Link href="/calls" className="text-sm text-[#777] hover:text-[#111] transition-colors">
+                View all &rarr;
+              </Link>
+            </div>
+            {recentCalls.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <Phone size={28} className="text-[#ccc] mx-auto mb-3" />
+                <p className="text-sm text-[#777]">No calls yet</p>
+                <p className="text-xs text-[#999] mt-1">{agentName} will log every call automatically.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {recentCalls.map((call) => (
+                  <li key={call.id} className="px-5 py-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-sm font-medium text-[#111] truncate">
+                          {call.caller_name ?? call.caller_number ?? 'Unknown'}
+                        </p>
+                        {call.sentiment && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${sentimentColor(call.sentiment)} hidden sm:inline-flex`}>
+                            {call.sentiment}
+                          </span>
+                        )}
+                        {call.callback_promised && !call.callback_completed && (
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 hidden sm:inline-flex">
+                            Callback requested
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-[#999] shrink-0">
+                        {formatDuration(call.duration_seconds)}
+                      </span>
                     </div>
-                    <span className="text-xs text-[#999] shrink-0">
-                      {formatDuration(call.duration_seconds)}
-                    </span>
-                  </div>
-                  {call.summary && (
-                    <p className="mt-1 text-xs text-[#777] line-clamp-2">{call.summary}</p>
-                  )}
-                  <p className="mt-1 text-[10px] text-[#999]" suppressHydrationWarning>
-                    {new Date(call.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* New Leads */}
-        <div className="bg-white rounded-xl border border-[#e5e7eb]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[#111]">New Leads</h2>
-            <Link href="/leads" className="text-sm text-[#777] hover:text-[#111] transition-colors">
-              View all &rarr;
-            </Link>
+                    {call.summary && (
+                      <p className="mt-1 text-xs text-[#777] line-clamp-2">{call.summary}</p>
+                    )}
+                    <p className="mt-1 text-[10px] text-[#999]" suppressHydrationWarning>
+                      {new Date(call.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {leads.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <Target size={28} className="text-[#ccc] mx-auto mb-3" />
-              <p className="text-sm text-[#777]">No new leads yet</p>
-              <p className="text-xs text-[#999] mt-1">{agentName} will capture leads from every call.</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {leads.map((lead) => (
-                <li key={lead.id} className="px-5 py-3.5">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${urgencyDot(lead.urgency)}`} />
-                    <p className="text-sm font-medium text-[#111] truncate">
-                      {lead.name ?? lead.phone ?? 'Unknown'}
-                    </p>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-50 text-green-700 uppercase">
-                      New
-                    </span>
-                  </div>
-                  {lead.service_interested && (
-                    <p className="mt-1 text-xs text-[#777] ml-4">
-                      Interested in: {lead.service_interested}
-                    </p>
-                  )}
-                  <p className="mt-1 text-[10px] text-[#999] ml-4" suppressHydrationWarning>
-                    {new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
 
-      {/* Quick Links */}
+          {/* New Leads */}
+          <div className="bg-white rounded-xl border border-[#e5e7eb]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#111]">New Leads</h2>
+              <Link href="/leads" className="text-sm text-[#777] hover:text-[#111] transition-colors">
+                View all &rarr;
+              </Link>
+            </div>
+            {recentLeads.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <Target size={28} className="text-[#ccc] mx-auto mb-3" />
+                <p className="text-sm text-[#777]">No new leads yet</p>
+                <p className="text-xs text-[#999] mt-1">{agentName} will capture leads from every call.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {recentLeads.map((lead) => (
+                  <li key={lead.id} className="px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${urgencyDot(lead.urgency)}`} />
+                      <p className="text-sm font-medium text-[#111] truncate">
+                        {lead.name ?? lead.phone ?? 'Unknown'}
+                      </p>
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-50 text-green-700 uppercase">
+                        New
+                      </span>
+                    </div>
+                    {lead.service_interested && (
+                      <p className="mt-1 text-xs text-[#777] ml-4">
+                        Interested in: {lead.service_interested}
+                      </p>
+                    )}
+                    <p className="mt-1 text-[10px] text-[#999] ml-4" suppressHydrationWarning>
+                      {new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Links — dynamic based on products */}
       <div className="mb-8">
         <h2 className="text-base font-semibold text-[#111] mb-3">Quick Links</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <QuickLinkCard href="/crm" icon={<Users size={20} className="text-[#777]" />} label="Manage Contacts" />
-          <QuickLinkCard href="/knowledge-base" icon={<BookOpen size={20} className="text-[#777]" />} label="Knowledge Base" />
-          <QuickLinkCard href="/website-analytics" icon={<Globe size={20} className="text-[#777]" />} label="Website Analytics" />
+          {hasReceptionist && <QuickLinkCard href="/knowledge-base" icon={<BookOpen size={20} className="text-[#777]" />} label="Knowledge Base" />}
+          {hasSocial && <QuickLinkCard href="/content" icon={<Send size={20} className="text-[#777]" />} label="Content Calendar" />}
+          <QuickLinkCard href="/website-analytics" icon={<Globe size={20} className="text-[#777]" />} label="Website" />
           <QuickLinkCard href="/settings" icon={<Settings size={20} className="text-[#777]" />} label="Settings" />
         </div>
       </div>
 
-      {/* Agent Status Bar */}
-      <div className="bg-white rounded-xl border border-[#e5e7eb] px-5 py-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm text-[#111] font-medium">
-              {lastCall
-                ? `${agentName} is active and answering your calls`
-                : `${agentName} is active and ready for your first call`}
-            </span>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-[#999]">
-            <span>{kbCount ?? 0} knowledge base entries</span>
-            {lastCall && (
-              <span suppressHydrationWarning>Last call {timeAgo(lastCall.created_at)}</span>
-            )}
+      {/* Agent Status Bar — only when receptionist */}
+      {hasReceptionist && (
+        <div className="bg-white rounded-xl border border-[#e5e7eb] px-5 py-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm text-[#111] font-medium">
+                {lastCall
+                  ? `${agentName} is active and answering your calls`
+                  : `${agentName} is active and ready for your first call`}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-[#999]">
+              <span>{kbCount} knowledge base entries</span>
+              {lastCall && (
+                <span suppressHydrationWarning>Last call {(() => {
+                  const diff = Date.now() - new Date(lastCall.created_at).getTime()
+                  const mins = Math.floor(diff / 60000)
+                  if (mins < 1) return 'just now'
+                  if (mins < 60) return `${mins}m ago`
+                  const hours = Math.floor(mins / 60)
+                  if (hours < 24) return `${hours}h ago`
+                  return `${Math.floor(hours / 24)}d ago`
+                })()}</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
