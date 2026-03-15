@@ -15,6 +15,7 @@ export const PRODUCT_GATED_ROUTES: Record<string, Product[]> = {
   '/posts': ['social'],
   '/conversations': ['social'],
   '/social': ['social'],
+  '/insights': ['receptionist'],
   '/calls': ['receptionist'],
   '/leads': ['receptionist'],
   '/learned': ['receptionist'],

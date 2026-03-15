@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserContext } from '@/lib/auth/get-user-profile'
 import { CallVolumeChart } from '@/components/dashboard/CallVolumeChart'
 import Link from 'next/link'
-import { Phone, Target, Clock, ClipboardList, Users, Globe, FileText, BookOpen, Settings, BarChart3, Heart, Send } from 'lucide-react'
+import { Phone, Target, Clock, ClipboardList, Users, Globe, FileText, BookOpen, Settings, BarChart3, Heart, Send, Sparkles } from 'lucide-react'
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return '0:00'
@@ -175,11 +175,23 @@ export default async function DashboardPage() {
       .eq('client_id', clientId),
   ] as const : null
 
+  // --- Insights query (when receptionist is enabled) ---
+  const insightsQuery = hasReceptionist
+    ? supabase
+        .from('business_insights')
+        .select('id, category, priority, title, insight, status, created_at')
+        .eq('client_id', clientId)
+        .eq('status', 'new')
+        .order('created_at', { ascending: false })
+        .limit(3)
+    : null
+
   // Execute all in parallel
-  const [baseResults, recResults, socialResults] = await Promise.all([
+  const [baseResults, recResults, socialResults, insightsResult] = await Promise.all([
     Promise.all(baseQueries),
     receptionistQueries ? Promise.all(receptionistQueries) : Promise.resolve(null),
     socialQueries ? Promise.all(socialQueries) : Promise.resolve(null),
+    insightsQuery ?? Promise.resolve({ data: null }),
   ])
 
   // Base metrics
@@ -221,6 +233,9 @@ export default async function DashboardPage() {
     totalEngagement = publishedPosts.reduce((s, p) => s + (p.engagement_likes ?? 0) + (p.engagement_comments ?? 0) + (p.engagement_shares ?? 0), 0)
     totalReach = publishedPosts.reduce((s, p) => s + (p.engagement_reach ?? 0), 0)
   }
+
+  // Insights
+  const newInsights = (insightsResult?.data ?? []) as Array<{ id: string; category: string; priority: string; title: string; insight: string; status: string; created_at: string }>
 
   const hasCallbacks = callbacksDue > 0
   const subtitle = hasAnyProduct
@@ -288,6 +303,60 @@ export default async function DashboardPage() {
       )}
 
       <div className="mb-8" />
+
+      {/* Tom's Insights Card — only when receptionist + has new insights */}
+      {hasReceptionist && newInsights.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#e5e7eb] mb-8" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                <Sparkles size={16} className="text-amber-500" />
+              </div>
+              <h2 className="text-base font-semibold text-[#111]">Tom&apos;s Insights</h2>
+              <span className="bg-[#FFD700] text-[#111] text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {newInsights.length} new
+              </span>
+            </div>
+            <Link href="/insights" className="text-sm text-blue-600 hover:text-blue-800 transition-colors">
+              View all &rarr;
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {newInsights.map(insight => {
+              const catColors: Record<string, string> = {
+                revenue_opportunity: '#16A34A',
+                operations: '#2563EB',
+                customer_experience: '#9333EA',
+                competitive_intel: '#DC2626',
+              }
+              const catLabels: Record<string, string> = {
+                revenue_opportunity: 'Revenue',
+                operations: 'Operations',
+                customer_experience: 'Experience',
+                competitive_intel: 'Intel',
+              }
+              const color = catColors[insight.category] ?? '#6B7280'
+              return (
+                <div key={insight.id} className="flex gap-3 px-5 py-3.5">
+                  <div className="w-[3px] rounded-full shrink-0 mt-0.5" style={{ backgroundColor: color, minHeight: 36 }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[10px] font-bold uppercase" style={{ color }}>
+                        {catLabels[insight.category] ?? insight.category}
+                      </span>
+                      {insight.priority === 'high' && (
+                        <span className="text-[10px] font-bold text-red-600">● HIGH</span>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-[#111] leading-snug">{insight.title}</p>
+                    <p className="text-xs text-[#777] line-clamp-2 mt-0.5">{insight.insight}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Call Volume Chart — only when receptionist is enabled */}
       {hasReceptionist && (
