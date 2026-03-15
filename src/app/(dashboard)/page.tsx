@@ -304,7 +304,7 @@ export default async function DashboardPage() {
 
       <div className="mb-8" />
 
-      {/* Tom's Insights Card — only when receptionist + has new insights */}
+      {/* Insights Card — only when receptionist + has new insights */}
       {hasReceptionist && newInsights.length > 0 && (
         <div className="bg-white rounded-xl border border-[#e5e7eb] mb-8" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between">
@@ -312,7 +312,7 @@ export default async function DashboardPage() {
               <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                 <Sparkles size={16} className="text-amber-500" />
               </div>
-              <h2 className="text-base font-semibold text-[#111]">Tom&apos;s Insights</h2>
+              <h2 className="text-base font-semibold text-[#111]">{agentName}&apos;s Insights</h2>
               <span className="bg-[#FFD700] text-[#111] text-[10px] font-bold px-2 py-0.5 rounded-full">
                 {newInsights.length} new
               </span>

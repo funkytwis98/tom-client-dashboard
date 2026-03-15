@@ -19,7 +19,7 @@ export default async function InsightsPage() {
 
   return (
     <div className="p-4 md:p-8 bg-[#fafafa] min-h-screen">
-      <InsightsDashboard initialInsights={insights ?? []} />
+      <InsightsDashboard initialInsights={insights ?? []} agentName={ctx.agentName ?? 'Your AI assistant'} />
     </div>
   )
 }

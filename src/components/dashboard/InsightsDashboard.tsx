@@ -48,7 +48,7 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`
 }
 
-export default function InsightsDashboard({ initialInsights }: { initialInsights: Insight[] }) {
+export default function InsightsDashboard({ initialInsights, agentName }: { initialInsights: Insight[]; agentName: string }) {
   const [insights, setInsights] = useState(initialInsights)
   const [filter, setFilter] = useState<CategoryFilter>('all')
   const [toast, setToast] = useState<string | null>(null)
@@ -88,8 +88,8 @@ export default function InsightsDashboard({ initialInsights }: { initialInsights
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Tom&apos;s Insights</h1>
-          <p className="text-sm text-gray-500 mt-1">What Tom has learned about your business from customer calls.</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">{agentName}&apos;s Insights</h1>
+          <p className="text-sm text-gray-500 mt-1">What {agentName} has learned about your business from customer calls.</p>
         </div>
         {newCount > 0 && (
           <span className="bg-[#FFD700] text-[#111] text-xs font-bold px-3 py-1 rounded-full">
@@ -123,7 +123,7 @@ export default function InsightsDashboard({ initialInsights }: { initialInsights
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-[#e5e7eb] p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <p className="text-gray-400 text-sm">
-            Tom hasn&apos;t generated any insights yet. As Tom handles more calls, business insights will appear here.
+            {agentName} hasn&apos;t generated any insights yet. As {agentName} handles more calls, business insights will appear here.
           </p>
         </div>
       ) : (
