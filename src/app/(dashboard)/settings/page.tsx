@@ -17,7 +17,7 @@ export default async function SettingsPage() {
   const hasSocial = (ctx.productsEnabled ?? []).includes('social')
   const hasReceptionist = (ctx.productsEnabled ?? []).includes('receptionist')
 
-  const [{ data: client }, agentRes, socialRes, { data: hours }, { data: services }] = await Promise.all([
+  const [{ data: client }, agentRes, socialRes] = await Promise.all([
     supabase.from('clients').select('name, owner_name, owner_phone').eq('id', ctx.clientId).single(),
     hasReceptionist
       ? supabase.from('agent_config').select('agent_name, greeting, voice_id, language').eq('client_id', ctx.clientId).single()
@@ -25,8 +25,6 @@ export default async function SettingsPage() {
     hasSocial
       ? supabase.from('social_connections').select('id, platform, status, account_name, connected_at').eq('client_id', ctx.clientId).order('platform')
       : Promise.resolve({ data: null }),
-    supabase.from('business_hours').select('id, day_of_week, is_open, open_time, close_time').eq('client_id', ctx.clientId).order('day_of_week'),
-    supabase.from('services_pricing').select('id, service_name, price_text, notes, sort_order, is_active').eq('client_id', ctx.clientId).eq('is_active', true).order('sort_order'),
   ])
 
   const agentConfig = agentRes?.data ?? null
@@ -55,8 +53,6 @@ export default async function SettingsPage() {
           }}
           productsEnabled={ctx.productsEnabled}
           socialConnections={socialRes?.data ?? []}
-          businessHours={hours ?? []}
-          services={services ?? []}
         />
       </div>
     </div>

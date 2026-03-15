@@ -16,8 +16,6 @@ const LANGUAGE_OPTIONS = [
   { value: 'multi', label: 'Bilingual (English + Spanish)' },
 ]
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 interface BusinessData {
   name: string
   owner_name: string
@@ -39,23 +37,6 @@ interface SocialConnection {
   connected_at: string | null
 }
 
-interface BusinessHour {
-  id: string
-  day_of_week: number
-  is_open: boolean
-  open_time: string | null
-  close_time: string | null
-}
-
-interface ServicePricing {
-  id: string
-  service_name: string
-  price_text: string | null
-  notes: string | null
-  sort_order: number | null
-  is_active: boolean
-}
-
 interface SettingsFormProps {
   clientId: string
   email: string
@@ -63,8 +44,6 @@ interface SettingsFormProps {
   initialReceptionist: ReceptionistData
   productsEnabled?: string[]
   socialConnections?: SocialConnection[]
-  businessHours?: BusinessHour[]
-  services?: ServicePricing[]
 }
 
 export function SettingsForm({
@@ -74,8 +53,6 @@ export function SettingsForm({
   initialReceptionist,
   productsEnabled = [],
   socialConnections = [],
-  businessHours = [],
-  services = [],
 }: SettingsFormProps) {
   const { showToast } = useToast()
   const router = useRouter()
@@ -95,6 +72,11 @@ export function SettingsForm({
   const [rec, setRec] = useState(initialReceptionist)
   const [recDirty, setRecDirty] = useState(false)
   const [isSavingRec, startSaveRec] = useTransition()
+
+  // Demo request state
+  const [receptionistDemoRequested, setReceptionistDemoRequested] = useState(false)
+  const [socialDemoRequested, setSocialDemoRequested] = useState(false)
+  const [isRequestingDemo, startRequestDemo] = useTransition()
 
   // Fetch available voices from Retell on mount (only when receptionist is enabled)
   useEffect(() => {
@@ -173,6 +155,32 @@ export function SettingsForm({
     })
   }
 
+  function handleRequestDemo(product: 'receptionist' | 'social') {
+    const subject = product === 'receptionist' ? 'Tom Receptionist Demo Request' : 'Tom Social Demo Request'
+    const message = product === 'receptionist'
+      ? 'Client requested a demo of Tom Receptionist'
+      : 'Client requested a demo of Tom Social'
+
+    startRequestDemo(async () => {
+      try {
+        const supabase = createClient()
+        const { error } = await supabase.from('website_requests').insert({
+          client_id: clientId,
+          request_type: 'demo',
+          subject,
+          message,
+          status: 'pending',
+        })
+        if (error) throw error
+        if (product === 'receptionist') setReceptionistDemoRequested(true)
+        else setSocialDemoRequested(true)
+        showToast('Demo request submitted!', 'success')
+      } catch {
+        showToast('Failed to submit demo request', 'error')
+      }
+    })
+  }
+
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -186,13 +194,6 @@ export function SettingsForm({
   const cardCls = 'bg-white rounded-[14px] border border-[#e5e7eb] p-4 md:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]'
 
   const currentVoiceInList = voiceOptions.some(v => v.value === rec.voice_id)
-
-  // Sort hours by day (Mon=1 first, Sun=0 last)
-  const sortedHours = [...businessHours].sort((a, b) => {
-    const aKey = a.day_of_week === 0 ? 7 : a.day_of_week
-    const bKey = b.day_of_week === 0 ? 7 : b.day_of_week
-    return aKey - bKey
-  })
 
   return (
     <div className="space-y-6">
@@ -224,55 +225,8 @@ export function SettingsForm({
         </div>
       </section>
 
-      {/* Business Hours — always visible */}
-      <section className={cardCls}>
-        <h2 className="text-lg font-bold text-[#111] mb-5">Business Hours</h2>
-        {sortedHours.length === 0 ? (
-          <p className="text-sm text-gray-500">No business hours configured yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {sortedHours.map(h => (
-              <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <span className="text-sm font-medium text-[#333] w-28">{DAY_NAMES[h.day_of_week]}</span>
-                {h.is_open ? (
-                  <span className="text-sm text-[#111]">
-                    {formatTime(h.open_time)} &ndash; {formatTime(h.close_time)}
-                  </span>
-                ) : (
-                  <span className="text-sm text-[#999]">Closed</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="text-xs text-gray-400 mt-4">Contact your agency to update business hours.</p>
-      </section>
-
-      {/* Services & Pricing — always visible */}
-      <section className={cardCls}>
-        <h2 className="text-lg font-bold text-[#111] mb-5">Services &amp; Pricing</h2>
-        {services.length === 0 ? (
-          <p className="text-sm text-gray-500">No services configured yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {services.map(svc => (
-              <div key={svc.id} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[#111]">{svc.service_name}</p>
-                  {svc.notes && <p className="text-xs text-[#777] mt-0.5">{svc.notes}</p>}
-                </div>
-                {svc.price_text && (
-                  <span className="text-sm font-semibold text-[#111] ml-4 shrink-0">{svc.price_text}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="text-xs text-gray-400 mt-4">Contact your agency to update services and pricing.</p>
-      </section>
-
-      {/* Receptionist Settings — only when receptionist is enabled */}
-      {hasReceptionist && (
+      {/* Receptionist: settings when enabled, demo CTA when not */}
+      {hasReceptionist ? (
         <section className={cardCls}>
           <h2 className="text-lg font-bold text-[#111] mb-5">Receptionist Settings</h2>
           <div className="space-y-4">
@@ -322,10 +276,28 @@ export function SettingsForm({
             </button>
           </div>
         </section>
+      ) : (
+        <section className="rounded-[14px] border border-[#FFD700] bg-[#09090B] p-5 md:p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <h2 className="text-lg font-bold text-white mb-2">Tom Receptionist</h2>
+          <p className="text-sm text-[#999] mb-5 leading-relaxed">
+            An AI receptionist that answers calls, captures leads, and books appointments 24/7. Never miss a customer call again.
+          </p>
+          <button
+            onClick={() => handleRequestDemo('receptionist')}
+            disabled={receptionistDemoRequested || isRequestingDemo}
+            className={`font-semibold text-sm rounded-[14px] px-6 py-3 transition-all ${
+              receptionistDemoRequested
+                ? 'bg-green-600 text-white cursor-default'
+                : 'bg-[#FFD700] text-[#111] hover:brightness-95 disabled:opacity-50'
+            }`}
+          >
+            {receptionistDemoRequested ? 'Demo Requested \u2713' : isRequestingDemo ? 'Requesting...' : 'Request a Demo'}
+          </button>
+        </section>
       )}
 
-      {/* Social Connections — only when social is enabled */}
-      {hasSocial && (
+      {/* Social: connections when enabled, demo CTA when not */}
+      {hasSocial ? (
         <section className={cardCls}>
           <h2 className="text-lg font-bold text-[#111] mb-5">Social Connections</h2>
           {socialConnections.length === 0 ? (
@@ -357,6 +329,24 @@ export function SettingsForm({
             </div>
           )}
         </section>
+      ) : (
+        <section className="rounded-[14px] border border-[#FFD700] bg-[#09090B] p-5 md:p-7 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <h2 className="text-lg font-bold text-white mb-2">Tom Social</h2>
+          <p className="text-sm text-[#999] mb-5 leading-relaxed">
+            AI-powered social media management. Tom creates, schedules, and publishes content for your business across Facebook and Instagram.
+          </p>
+          <button
+            onClick={() => handleRequestDemo('social')}
+            disabled={socialDemoRequested || isRequestingDemo}
+            className={`font-semibold text-sm rounded-[14px] px-6 py-3 transition-all ${
+              socialDemoRequested
+                ? 'bg-green-600 text-white cursor-default'
+                : 'bg-[#FFD700] text-[#111] hover:brightness-95 disabled:opacity-50'
+            }`}
+          >
+            {socialDemoRequested ? 'Demo Requested \u2713' : isRequestingDemo ? 'Requesting...' : 'Request a Demo'}
+          </button>
+        </section>
       )}
 
       {/* Account — always visible */}
@@ -379,13 +369,4 @@ export function SettingsForm({
       </section>
     </div>
   )
-}
-
-function formatTime(time: string | null): string {
-  if (!time) return ''
-  // time is "HH:MM" or "HH:MM:SS" — convert to 12h
-  const [h, m] = time.split(':').map(Number)
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`
 }
