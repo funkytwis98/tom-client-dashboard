@@ -1,4 +1,4 @@
-// Tom Agency Analytics Snippet — <2KB minified
+// Tom Integrations Analytics Snippet — <2KB minified
 // Usage: <script src="https://ai-receptionist-snowy.vercel.app/analytics.js" data-client="CLIENT_ID"></script>
 (function() {
   'use strict';

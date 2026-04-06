@@ -1,4 +1,4 @@
-// Tom Agency Website Tracking Script — <2KB
+// Tom Integrations Website Tracking Script — <2KB
 // Usage: <script src="https://ai-receptionist-snowy.vercel.app/tracking.js" data-client-id="CLIENT_ID" async></script>
 (function() {
   var s = document.currentScript;
