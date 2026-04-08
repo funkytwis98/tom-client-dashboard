@@ -27,8 +27,6 @@ export const CLIENT_NAV_CONFIG: NavConfig[] = [
   { label: 'Learned', href: '/learned', icon: 'lightbulb', requiredProducts: ['receptionist'] },
   { label: 'Insights', href: '/insights', icon: 'sparkle', requiredProducts: ['receptionist'] },
   { label: 'Social', href: '/social', icon: 'megaphone', requiredProducts: ['social'] },
-  { label: 'Content', href: '/content', icon: 'calendar', requiredProducts: ['social'] },
-  { label: 'Analytics', href: '/analytics', icon: 'chart', requiredProducts: ['social'] },
   { label: 'Settings', href: '/settings', icon: 'settings' },
 ]
 

@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import SocialSettingsForm from './SocialSettingsForm'
+import ContentQueue from './ContentQueue'
+import MyIdeas from './MyIdeas'
+import PostHistory from './PostHistory'
 
 type SubTab = 'queue' | 'ideas' | 'history' | 'settings'
 
@@ -27,18 +30,8 @@ const SUB_TABS: { key: SubTab; label: string }[] = [
   { key: 'settings', label: 'Settings' },
 ]
 
-function EmptyState({ icon, title, description }: { icon: string; title: string; description: string }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-      <p className="text-3xl mb-3">{icon}</p>
-      <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 max-w-sm mx-auto">{description}</p>
-    </div>
-  )
-}
-
 export default function SocialDashboard({ clientId, initialSettings }: SocialDashboardProps) {
-  const [tab, setTab] = useState<SubTab>('settings')
+  const [tab, setTab] = useState<SubTab>('queue')
 
   return (
     <div className="p-4 md:p-8 bg-[#fafafa] min-h-screen">
@@ -68,35 +61,11 @@ export default function SocialDashboard({ clientId, initialSettings }: SocialDas
       </div>
 
       {/* Tab content */}
-      {tab === 'queue' && (
-        <EmptyState
-          icon="📋"
-          title="Coming soon"
-          description="Your content queue will appear here. Tom will generate and schedule posts for your business automatically."
-        />
-      )}
-
-      {tab === 'ideas' && (
-        <EmptyState
-          icon="💡"
-          title="Coming soon"
-          description="Your post ideas will appear here. Save ideas and Tom will turn them into polished content."
-        />
-      )}
-
-      {tab === 'history' && (
-        <EmptyState
-          icon="📊"
-          title="Coming soon"
-          description="Your published post history and performance metrics will appear here."
-        />
-      )}
-
+      {tab === 'queue' && <ContentQueue clientId={clientId} />}
+      {tab === 'ideas' && <MyIdeas clientId={clientId} />}
+      {tab === 'history' && <PostHistory clientId={clientId} />}
       {tab === 'settings' && (
-        <SocialSettingsForm
-          clientId={clientId}
-          initialSettings={initialSettings}
-        />
+        <SocialSettingsForm clientId={clientId} initialSettings={initialSettings} />
       )}
     </div>
   )
